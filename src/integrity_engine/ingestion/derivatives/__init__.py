@@ -1,0 +1,1 @@
+"""Shared derivatives ingestion helpers."""

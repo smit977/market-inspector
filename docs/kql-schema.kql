@@ -1,0 +1,6 @@
+// Eventhouse tables for FabricEventEnvelope payloads. Keep the original payload for replay/audit.
+.create-merge table MarketMetrics (Timestamp:datetime, EventId:string, Exchange:string, Symbol:string, Window:string, PriceReturn:real, QuoteVolume:decimal, TradeCount:long, Payload:dynamic)
+.create-merge table CrossVenueMetrics (Timestamp:datetime, EventId:string, CanonicalPair:string, Window:string, MedianPrice:decimal, DispersionBps:decimal, ConfirmationRatio:decimal, ActiveVenues:dynamic, Payload:dynamic)
+.create-merge table DerivativesMetrics (Timestamp:datetime, EventId:string, Exchange:string, CanonicalPair:string, Window:string, PerpetualPrice:decimal, BasisBps:decimal, PerpetualQuoteVolume:decimal, OpenInterest:decimal, DataQualityFlags:dynamic, Payload:dynamic)
+.create-merge table MarketAnomalies (Timestamp:datetime, EventId:string, Exchange:string, Symbol:string, EventType:string, Severity:string, Window:string, Direction:string, DetectorsTriggered:dynamic, Evidence:dynamic, Payload:dynamic)
+.create-merge table MarketIntegrity (Timestamp:datetime, EventId:string, CanonicalPair:string, TriggerEventId:string, TriggerType:string, IntegrityScore:decimal, OverallConfidence:decimal, EvidenceCoverage:decimal, Classification:string, ClassificationConfidence:decimal, MoveDirection:string, Components:dynamic, DataQualityFlags:dynamic, Payload:dynamic)

@@ -1,0 +1,9 @@
+// Replace <db> with the Eventhouse KQL database name.
+MarketIntegrity | top 1 by Timestamp desc | project Timestamp, CanonicalPair, IntegrityScore, OverallConfidence, Classification
+MarketIntegrity | where Timestamp > ago(24h) | summarize Events=count(), AvgScore=avg(IntegrityScore) by Classification
+MarketAnomalies | where Timestamp > ago(1h) | order by Timestamp desc
+CrossVenueMetrics | top 100 by Timestamp desc | project Timestamp, MedianPrice, DispersionBps, ConfirmationRatio, ActiveVenues
+DerivativesMetrics | top 100 by Timestamp desc | project Timestamp, Exchange, BasisBps, PerpetualQuoteVolume, OpenInterest
+DerivativesMetrics | where isnotnull(BasisBps) | summarize avg(BasisBps) by Exchange, bin(Timestamp, 5m)
+MarketIntegrity | where OverallConfidence < 0.5 | order by Timestamp desc
+MarketIntegrity | where array_length(DataQualityFlags) > 0 | project Timestamp, EventId, DataQualityFlags

@@ -1,0 +1,117 @@
+name: market-move-integrity
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    init: true
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      PROCESSING_MODE: ${PROCESSING_MODE:-live}
+      DERIVATIVES_SPOT_MAX_AGE_SECONDS: ${DERIVATIVES_SPOT_MAX_AGE_SECONDS:-5}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      BINANCE_WS_BASE_URL: ${BINANCE_WS_BASE_URL:-wss://data-stream.binance.vision}
+      BINANCE_TRADE_SYMBOL: ${BINANCE_TRADE_SYMBOL:-BTCUSDT}
+      COINBASE_WS_URL: ${COINBASE_WS_URL:-wss://ws-feed.exchange.coinbase.com}
+      COINBASE_TRADE_SYMBOL: ${COINBASE_TRADE_SYMBOL:-BTC-USD}
+      KRAKEN_WS_URL: ${KRAKEN_WS_URL:-wss://ws.kraken.com/v2}
+      KRAKEN_TRADE_SYMBOL: ${KRAKEN_TRADE_SYMBOL:-BTC/USD}
+      OKX_WS_URL: ${OKX_WS_URL:-wss://ws.okx.com:8443/ws/v5/public}
+      OKX_TRADE_SYMBOL: ${OKX_TRADE_SYMBOL:-BTC-USDT}
+      BYBIT_WS_URL: ${BYBIT_WS_URL:-wss://stream.bybit.com/v5/public/spot}
+      BYBIT_TRADE_SYMBOL: ${BYBIT_TRADE_SYMBOL:-BTCUSDT}
+      CROSS_VENUE_STALE_AFTER_MS: ${CROSS_VENUE_STALE_AFTER_MS:-5000}
+      CROSS_VENUE_CALCULATION_INTERVAL_MS: ${CROSS_VENUE_CALCULATION_INTERVAL_MS:-1000}
+      CROSS_VENUE_MIN_ACTIVE_VENUES: ${CROSS_VENUE_MIN_ACTIVE_VENUES:-3}
+      DERIVATIVES_OI_POLL_INTERVAL_MS: ${DERIVATIVES_OI_POLL_INTERVAL_MS:-5000}
+      DERIVATIVES_NO_TRADE_TIMEOUT_MS: ${DERIVATIVES_NO_TRADE_TIMEOUT_MS:-15000}
+      INTEGRITY_MAX_EVIDENCE_AGE_SECONDS: ${INTEGRITY_MAX_EVIDENCE_AGE_SECONDS:-5}
+      BINANCE_ORDERBOOK_SYMBOL: ${BINANCE_ORDERBOOK_SYMBOL:-BTCUSDT}
+      BINANCE_ORDERBOOK_INTERVAL_MS: ${BINANCE_ORDERBOOK_INTERVAL_MS:-100}
+      BINANCE_REST_BASE_URL: ${BINANCE_REST_BASE_URL:-https://data-api.binance.vision}
+      BINANCE_ORDERBOOK_SNAPSHOT_LIMIT: ${BINANCE_ORDERBOOK_SNAPSHOT_LIMIT:-1000}
+      ORDERBOOK_PUBLISH_DEPTH: ${ORDERBOOK_PUBLISH_DEPTH:-20}
+      ORDERBOOK_PUBLISH_INTERVAL_MS: ${ORDERBOOK_PUBLISH_INTERVAL_MS:-250}
+      FEATURE_CALCULATION_INTERVAL_MS: ${FEATURE_CALCULATION_INTERVAL_MS:-1000}
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+      - ./tests:/app/tests
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  kafka:
+    image: apache/kafka:4.1.2
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # Stable development identity, not a credential. Keep it with the data volume.
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-Mk1JRW5naW5lRGV2Q2x1cw}
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms512m -Xmx512m}
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
+    ports:
+      - "127.0.0.1:${KAFKA_UI_PORT:-8080}:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: market-move-integrity
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      DYNAMIC_CONFIG_ENABLED: "false"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  fabric-exporter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["fabric"]
+    working_dir: /app
+    command: ["python", "scripts/run_fabric_exporter.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      FABRIC_ENABLED: ${FABRIC_ENABLED:-false}
+      FABRIC_KAFKA_BOOTSTRAP_SERVERS: ${FABRIC_KAFKA_BOOTSTRAP_SERVERS:-}
+      FABRIC_KAFKA_USERNAME: ${FABRIC_KAFKA_USERNAME:-}
+      FABRIC_KAFKA_PASSWORD: ${FABRIC_KAFKA_PASSWORD:-}
+      FABRIC_SECURITY_PROTOCOL: ${FABRIC_SECURITY_PROTOCOL:-SASL_SSL}
+      FABRIC_SASL_MECHANISM: ${FABRIC_SASL_MECHANISM:-PLAIN}
+      FABRIC_TOPIC_METRICS: ${FABRIC_TOPIC_METRICS:-}
+      FABRIC_TOPIC_CROSS_VENUE: ${FABRIC_TOPIC_CROSS_VENUE:-}
+      FABRIC_TOPIC_DERIVATIVES: ${FABRIC_TOPIC_DERIVATIVES:-}
+      FABRIC_TOPIC_ANOMALIES: ${FABRIC_TOPIC_ANOMALIES:-}
+      FABRIC_TOPIC_INTEGRITY: ${FABRIC_TOPIC_INTEGRITY:-}
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+volumes:
+  kafka_data:

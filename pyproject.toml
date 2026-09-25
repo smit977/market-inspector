@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=75,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "market-move-integrity-engine"
+version = "0.1.0"
+description = "Market Move Integrity Engine"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.7,<3",
+    "confluent-kafka>=2.8,<3",
+    "httpx>=0.28,<1",
+    "websockets>=14,<17",
+    "orjson>=3.10,<4",
+    "structlog>=25,<26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=1,<2",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
