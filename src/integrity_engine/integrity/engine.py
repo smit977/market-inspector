@@ -3,6 +3,7 @@ from datetime import datetime,timezone
 import structlog
 from integrity_engine.kafka.consumer import ManualKafkaConsumer
 from integrity_engine.kafka.producer import JsonKafkaProducer
+from integrity_engine.kafka.validation import validated_event
 from integrity_engine.schemas.anomaly import MarketAnomaly
 from integrity_engine.schemas.metrics import MarketMetrics
 from integrity_engine.schemas.cross_venue import CrossVenueMetrics
@@ -24,13 +25,17 @@ class IntegrityEngine:
                 m=await c.poll()
                 if not m:continue
                 try:
-                    raw=json.loads(m.value())
+                    schemas = {"market.anomalies": MarketAnomaly, "market.metrics": MarketMetrics,
+                               "market.metrics.cross_venue": CrossVenueMetrics,
+                               "market.metrics.derivatives": DerivativesMetrics}
+                    value = await validated_event(m, schemas[m.topic()], self.producer, c, "market-integrity-engine-v1")
+                    if value is None: continue
                     if m.topic()=="market.anomalies":
-                        event=self.process(MarketAnomaly.model_validate(raw));await self.producer.publish("market.integrity",f"BTC-USD:{event.trigger_event_id}",event.model_dump(mode="json"));self.produced+=1
+                        event=self.process(value);await self.producer.publish("market.integrity",f"BTC-USD:{event.trigger_event_id}",event.model_dump(mode="json"));self.produced+=1
                     elif m.topic()=="market.metrics":
-                        metric=MarketMetrics.model_validate(raw);self.metrics[(metric.exchange,metric.symbol,metric.window)]=metric
-                    elif m.topic()=="market.metrics.cross_venue": self.cross[raw["window"]]=CrossVenueMetrics.model_validate(raw)
-                    else:self.derivatives[(raw["exchange"],raw["window"])]=DerivativesMetrics.model_validate(raw)
+                        self.metrics[(value.exchange,value.symbol,value.window)]=value
+                    elif m.topic()=="market.metrics.cross_venue": self.cross[value.window]=value
+                    else:self.derivatives[(value.exchange,value.window)]=value
                     await c.commit(m)
                 except Exception as error:
                     structlog.get_logger().error("integrity_input_error",error_type=type(error).__name__)

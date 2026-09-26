@@ -4,7 +4,7 @@ import os
 import time
 from collections import OrderedDict, deque
 import structlog
-from confluent_kafka import Consumer, KafkaException, Message, TopicPartition
+from confluent_kafka import Consumer, KafkaError, KafkaException, Message, TopicPartition
 
 class OffsetTracker:
     """Contiguity is over delivered records; Kafka numeric offsets may have gaps."""
@@ -58,10 +58,25 @@ class ManualKafkaConsumer:
         offsets = self.tracker.offsets()
         if not offsets:
             return
-        committed = self._consumer.commit(offsets=offsets, asynchronous=False)
-        for offset in committed or []:
-            if offset.error is not None:
-                raise KafkaException(offset.error)
+        for attempt in range(6):
+            try:
+                committed = self._consumer.commit(offsets=offsets, asynchronous=False)
+                for offset in committed or []:
+                    if offset.error is not None:
+                        raise KafkaException(offset.error)
+                break
+            except KafkaException as exc:
+                error = exc.args[0]
+                transient = error.retriable() or error.code() in {
+                    KafkaError.COORDINATOR_LOAD_IN_PROGRESS,
+                    KafkaError.COORDINATOR_NOT_AVAILABLE,
+                    KafkaError.NOT_COORDINATOR,
+                }
+                if not transient or attempt == 5:
+                    raise
+                structlog.get_logger().warning("offset_commit_retry", group=self.group_id,
+                                               attempt=attempt + 1, error=str(error))
+                time.sleep(min(.25 * 2 ** attempt, 2))
         self.tracker.ready.clear()
 
     def _revoke(self, consumer, partitions):

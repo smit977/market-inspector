@@ -1,8 +1,39 @@
 # Market Move Integrity Engine
 
-Initial Docker-first development environment. All Python commands, dependency
+Docker-first development environment. All Python commands, dependency
 installation, and tests run inside Docker. Local Python and Anaconda are not used.
-Includes normalized trade schemas and a raw-only Binance trade ingestor.
+Includes multi-venue ingestion, normalization, order-book reconstruction,
+features, anomaly detection, integrity scoring, and ClickHouse persistence.
+
+## Run and verify the complete pipeline
+
+```sh
+docker compose build app clickhouse-writer
+docker compose up -d --no-build
+docker compose exec -T app pytest -q
+docker compose exec -T app python scripts/check_pipeline_health.py
+```
+
+All ingestion and processing workers run as dedicated services with
+`restart: unless-stopped`. Do not also launch the manual runners below while
+their corresponding services are running. The `app` container is now only a
+development/test shell. Kafka and ClickHouse retain their existing named volumes.
+
+`PROCESSING_RUN_ID=current` preserves the existing processing groups; the
+ClickHouse writer retains its existing `clickhouse-writer-v1-live-v2` group.
+Keep these names stable to resume committed positions. Unseen live groups start
+at the latest offsets; changing a group name is not a backlog recovery mechanism.
+
+The health command is read-only. It checks active consumer groups and periodic
+ClickHouse output freshness (30 seconds maximum). Anomaly and integrity outputs
+are event-triggered, so their timestamps are reported without a fixed freshness
+requirement. A passing result does not certify full exchange coverage: inspect
+`data_quality_flags` and ingestion logs for restricted or unavailable feeds.
+
+Temporary coordinator commit errors receive bounded retries without discarding
+pending offsets. Invalid detector/integrity inputs are delivered to `system.dlq`
+before acknowledgement. Failed deliveries remain unacknowledged for replay.
+Delivery remains at-least-once; ClickHouse deduplication is eventual.
 
 ## Prerequisites
 

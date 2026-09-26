@@ -16,6 +16,7 @@ dependencies = [
     "websockets>=14,<17",
     "orjson>=3.10,<4",
     "structlog>=25,<26",
+    "clickhouse-connect>=0.8,<1",
 ]
 
 [project.optional-dependencies]

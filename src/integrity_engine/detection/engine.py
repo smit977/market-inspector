@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import structlog
 from integrity_engine.kafka.consumer import ManualKafkaConsumer
 from integrity_engine.kafka.producer import JsonKafkaProducer
+from integrity_engine.kafka.validation import validated_event
 from integrity_engine.schemas.metrics import MarketMetrics
 from integrity_engine.detection.baselines import Baseline
 from integrity_engine.detection.detectors import DetectionConfig, detect
@@ -34,7 +35,11 @@ class MoveDetector:
    while not stop.is_set():
     m=await c.poll()
     if m:
-     try: await self.handle(MarketMetrics.model_validate(json.loads(m.value())));await c.commit(m)
+     try:
+      metric = await validated_event(m, MarketMetrics, self.producer, c, "market-move-detector-v1")
+      if metric is not None:
+       await self.handle(metric)
+       await c.commit(m)
      except Exception as e:
       log.error("move_detector_input_error",error_type=type(e).__name__)
       raise

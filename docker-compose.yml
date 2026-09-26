@@ -2,6 +2,7 @@ name: market-move-integrity
 
 services:
   app:
+    image: market-move-integrity-app
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,6 +11,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       PROCESSING_MODE: ${PROCESSING_MODE:-live}
+      PROCESSING_RUN_ID: ${PROCESSING_RUN_ID:-current}
       DERIVATIVES_SPOT_MAX_AGE_SECONDS: ${DERIVATIVES_SPOT_MAX_AGE_SECONDS:-5}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       BINANCE_WS_BASE_URL: ${BINANCE_WS_BASE_URL:-wss://data-stream.binance.vision}
@@ -35,12 +37,117 @@ services:
       ORDERBOOK_PUBLISH_DEPTH: ${ORDERBOOK_PUBLISH_DEPTH:-20}
       ORDERBOOK_PUBLISH_INTERVAL_MS: ${ORDERBOOK_PUBLISH_INTERVAL_MS:-250}
       FEATURE_CALCULATION_INTERVAL_MS: ${FEATURE_CALCULATION_INTERVAL_MS:-1000}
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-9000}
+      CLICKHOUSE_HTTP_PORT: ${CLICKHOUSE_HTTP_PORT:-8123}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-market_integrity}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_ENABLED: ${CLICKHOUSE_ENABLED:-true}
     volumes:
       - ./src:/app/src
       - ./scripts:/app/scripts
       - ./tests:/app/tests
     depends_on:
       kafka:
+        condition: service_healthy
+
+  binance-trades:
+    extends: {service: app}
+    command: ["python", "scripts/run_binance_trades.py"]
+    restart: unless-stopped
+
+  coinbase-trades:
+    extends: {service: app}
+    command: ["python", "scripts/run_coinbase_trades.py"]
+    restart: unless-stopped
+
+  kraken-trades:
+    extends: {service: app}
+    command: ["python", "scripts/run_kraken_trades.py"]
+    restart: unless-stopped
+
+  okx-trades:
+    extends: {service: app}
+    command: ["python", "scripts/run_okx_trades.py"]
+    restart: unless-stopped
+
+  bybit-trades:
+    extends: {service: app}
+    command: ["python", "scripts/run_bybit_trades.py"]
+    restart: unless-stopped
+
+  binance-orderbook:
+    extends: {service: app}
+    command: ["python", "scripts/run_binance_orderbook.py"]
+    restart: unless-stopped
+
+  derivatives-ingestion:
+    extends: {service: app}
+    command: ["python", "scripts/run_derivatives_ingestion.py"]
+    restart: unless-stopped
+
+  trade-normalizer:
+    extends: {service: app}
+    command: ["python", "scripts/run_trade_normalizer.py"]
+    restart: unless-stopped
+
+  orderbook-reconstructor:
+    extends: {service: app}
+    command: ["python", "scripts/run_binance_orderbook_reconstructor.py"]
+    restart: unless-stopped
+
+  feature-engine:
+    extends: {service: app}
+    command: ["python", "scripts/run_feature_engine.py"]
+    restart: unless-stopped
+
+  cross-venue-features:
+    extends: {service: app}
+    command: ["python", "scripts/run_cross_venue_features.py"]
+    restart: unless-stopped
+
+  derivatives-features:
+    extends: {service: app}
+    command: ["python", "scripts/run_derivatives_features.py"]
+    restart: unless-stopped
+
+  move-detector:
+    extends: {service: app}
+    command: ["python", "scripts/run_move_detector.py"]
+    restart: unless-stopped
+
+  integrity-engine:
+    extends: {service: app}
+    command: ["python", "scripts/run_integrity_engine.py"]
+    restart: unless-stopped
+
+  clickhouse-writer:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    init: true
+    command: ["python", "scripts/run_clickhouse_writer.py"]
+    environment:
+      PROCESSING_MODE: ${PROCESSING_MODE:-live}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-9000}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-market_integrity}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_ENABLED: ${CLICKHOUSE_ENABLED:-true}
+      CLICKHOUSE_BATCH_SIZE: ${CLICKHOUSE_BATCH_SIZE:-500}
+      CLICKHOUSE_FLUSH_INTERVAL_MS: ${CLICKHOUSE_FLUSH_INTERVAL_MS:-1000}
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+    depends_on:
+      kafka:
+        condition: service_healthy
+      clickhouse:
         condition: service_healthy
 
   kafka:
@@ -86,6 +193,26 @@ services:
       kafka:
         condition: service_healthy
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    ports:
+      - "127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+      - "127.0.0.1:${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-market_integrity}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
   fabric-exporter:
     build:
       context: .
@@ -115,3 +242,5 @@ services:
 
 volumes:
   kafka_data:
+  clickhouse_data:
+  clickhouse_logs:
