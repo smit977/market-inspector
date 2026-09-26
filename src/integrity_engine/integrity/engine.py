@@ -11,13 +11,13 @@ from integrity_engine.schemas.derivatives import DerivativesMetrics
 from integrity_engine.integrity.scoring import score_integrity
 
 class IntegrityEngine:
-    def __init__(self,producer,max_age_seconds=5): self.producer=producer;self.max_age=max_age_seconds;self.metrics={};self.cross={};self.derivatives={};self.produced=0;self.stale=0
+    def __init__(self,producer,max_age_seconds=5,clock=None): self.clock=clock;self.producer=producer;self.max_age=max_age_seconds;self.metrics={};self.cross={};self.derivatives={};self.produced=0;self.stale=0
     def _fresh(self,value,now): return value if value and abs((now-value.calculated_at).total_seconds())<=self.max_age else None
     def process(self,anomaly):
         key=(anomaly.exchange,anomaly.symbol,anomaly.window);now=anomaly.detected_at
         candidates=[v for (exchange,window),v in self.derivatives.items() if window==anomaly.window and self._fresh(v,now) and v.perpetual_to_spot_volume_ratio is not None]
         derivative=max(candidates,key=lambda v:(v.calculated_at,v.exchange)) if candidates else None
-        result=score_integrity(anomaly,self._fresh(self.metrics.get(key),now),self._fresh(self.cross.get(anomaly.window),now),derivative,self.max_age);return result
+        result=score_integrity(anomaly,self._fresh(self.metrics.get(key),now),self._fresh(self.cross.get(anomaly.window),now),derivative,self.max_age,calculated_at=self.clock.now() if self.clock else None);return result
     async def run(self,duration=None):
         b=os.environ["KAFKA_BOOTSTRAP_SERVERS"];c=ManualKafkaConsumer(b,["market.anomalies","market.metrics","market.metrics.cross_venue","market.metrics.derivatives"],os.getenv("INTEGRITY_CONSUMER_GROUP_ID","market-integrity-engine-v1"));stop=asyncio.Event();loop=asyncio.get_running_loop();[loop.add_signal_handler(s,stop.set) for s in (signal.SIGINT,signal.SIGTERM)];timer=loop.call_later(duration,stop.set) if duration else None
         try:

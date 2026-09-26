@@ -131,7 +131,10 @@ class CrossVenueFeatureEngine:
         flat = len(valid_returns) - up - down
         same = max(up, down) if valid_returns else 0
         ratio = Decimal(same) / Decimal(len(valid_returns)) if valid_returns else None
-        if len(active) < self.minimum_active_venues: state = "insufficient_data"
+        if len(valid_returns) < self.minimum_active_venues:
+            state = "insufficient_data"
+            flags.append("insufficient_venue_returns")
+        elif same == 0: state = "neutral"
         elif ratio is not None and ratio >= Decimal("0.8"): state = "broad"
         elif ratio is not None and ratio >= Decimal("0.6"): state = "partial"
         else: state = "fragmented"
@@ -150,5 +153,5 @@ class CrossVenueFeatureEngine:
             same_direction_count=same, confirmation_ratio=ratio, confirmation_state=state,
             median_return=median_return, return_dispersion=return_dispersion, venue_quote_volumes=quote_volumes,
             venue_volume_shares=shares, largest_venue_volume_share=largest, volume_hhi=hhi,
-            first_observed_venue=first, follow_lag_ms=lags, data_complete=len(active) >= self.minimum_active_venues,
+            first_observed_venue=first, follow_lag_ms=lags, data_complete=len(valid_returns) >= self.minimum_active_venues,
             data_quality_flags=flags)

@@ -118,3 +118,50 @@ docker compose restart mcp-server
 ClickHouse outages return structured errors and the next request creates a new
 client connection. The MCP service is not a dependency of the market pipeline,
 writer, or Grafana; stopping it does not stop those services.
+
+## Current conditions versus triggered events
+
+`get_market_summary.data.current_market_state` contains the latest calculated
+spot/cross-venue metrics and derivatives observations. Spot fields describe one
+venue's 30-second window, not consolidated market volume; `spot_metrics_context`
+identifies that venue, symbol, timestamp and units. The reference price is a
+cross-venue median and has its own timestamp. Derivatives use a one-minute window.
+
+`latest_detected_move` and `latest_triggered_integrity_event` are separate stored
+statistical assessments. Each has `event_age_seconds`, `event_status`,
+`assessment_scope: triggered_event_only` and `describes_current_market: false`.
+An event older than the service's freshness threshold (60 seconds by default)
+is historical context, even if it is the latest event. The legacy
+`latest_anomaly` and `latest_integrity_event` aliases retain the same metadata.
+`triggered_move_state: no_recent_triggered_move` means no fresh event was found
+within the bounded queries; it is not an assertion that market integrity is
+normal, healthy, or fully observed. Missing scores remain absent/null.
+
+`freshness` separately reports market metrics, cross-venue metrics, derivatives,
+anomalies and integrity events, including timestamps, ages and the threshold.
+Convenience fields include `market_data_status`, `cross_venue_status`,
+`derivatives_status`, `latest_anomaly_status`, and `latest_integrity_event_status`.
+States are `fresh`, `stale`, or `no_data`. Summary envelope status concerns only
+live metric sources; stale or absent events alone do not make it stale. Stale
+or absent derivatives still qualify the summary even when spot is fresh.
+`data_as_of` is the newest live metric time, not a guarantee that every source
+is equally fresh. `get_data_quality` uses the same distinction for sparse event
+tables, with no synthetic epoch timestamp for empty queries. Its freshness is
+scoped to the requested lookback, not the full event history.
+
+Cross-venue `confirmation_state` is one of `broad`, `partial`, `fragmented`,
+`neutral`, or `insufficient_data`. The first three refer to directional returns;
+`neutral` means all usable venue returns are inside the producer's configured
+flat threshold (including its boundaries). Existing numeric ratios and the
+0.8/0.6 directional cutoffs are unchanged. MCP adds `directional_signal_present`
+(false for neutral, null for insufficient data). Legacy persisted zero-ratio
+rows are interpreted as neutral using the producer's ratio, without applying a
+second potentially different flat threshold. New calculations require enough
+usable venue returns as well as active prices. Partial raw-table projections
+that omit the evidence needed for this interpretation remain raw.
+
+For AI clients, current calculated conditions appear under
+`evidence.calculated_metric`; latest events appear under
+`evidence.statistical_inference`. `data_limitations` groups quality flags by source, so historical event limitations
+are not mistaken for current feed problems. The envelope flags remain a union.
+No narrative trading advice or synthetic integrity assessment is generated.

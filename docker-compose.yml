@@ -329,6 +329,21 @@ services:
       - ./src:/app/src:ro
       - ./scripts:/app/scripts:ro
 
+  replay:
+    extends: {service: app}
+    image: market-move-integrity-replay
+    profiles: ["replay"]
+    environment:
+      PROCESSING_MODE: replay
+    cpus: "1.0"
+    mem_limit: 2g
+    volumes:
+      - ./data/replay:/app/data/replay
+      - ./.git:/app/.git:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./Dockerfile:/app/Dockerfile:ro
+    command: ["python", "scripts/run_replay.py", "--help"]
+
   fabric-exporter:
     build:
       context: .

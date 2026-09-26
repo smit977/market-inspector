@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
+
 from integrity_engine.features.cross_venue import CrossVenueFeatureEngine
 from integrity_engine.schemas.cross_venue import CrossVenueMetrics
 from integrity_engine.schemas.trade import TradeEvent
@@ -61,3 +63,36 @@ def test_bounded_state_and_serialization():
     assert len(engine.trades["binance"]) <= 61
     metric = engine.calculate("1m", T + timedelta(seconds=109))
     assert CrossVenueMetrics.model_validate_json(metric.model_dump_json()) == metric
+
+
+@pytest.mark.parametrize("prices,state,ratio", [
+    (["100.004", "99.996", "100", "100.005", "99.995"], "neutral", "0"),
+    (["101", "101", "99", "99", "100"], "fragmented", "0.4"),
+    (["101"] * 5, "broad", "1"),
+    (["99"] * 5, "broad", "1"),
+    (["101", "101", "101", "99", "100"], "partial", "0.6"),
+    (["101", "101"], "insufficient_data", "1"),
+])
+def test_directional_confirmation_semantics(prices, state, ratio):
+    engine = CrossVenueFeatureEngine()
+    for venue, price in zip(("binance", "coinbase", "kraken", "okx", "bybit"), prices):
+        engine.add_trade(trade(venue, "100", 0))
+        engine.add_trade(trade(venue, price, 5))
+    metric = engine.calculate("10s", T + timedelta(seconds=5))
+    assert metric.confirmation_state == state
+    assert metric.confirmation_ratio == Decimal(ratio)
+
+
+def test_active_prices_without_returns_are_insufficient():
+    engine = CrossVenueFeatureEngine()
+    for venue in ("binance", "coinbase", "kraken"):
+        engine.add_trade(trade(venue, "100", 5))
+    assert engine.calculate("10s", T + timedelta(seconds=5)).confirmation_state == "insufficient_data"
+
+
+def test_neutral_uses_configured_flat_threshold():
+    engine = CrossVenueFeatureEngine(flat_return_threshold=Decimal("0.02"))
+    for venue in ("binance", "coinbase", "kraken"):
+        engine.add_trade(trade(venue, "100", 0))
+        engine.add_trade(trade(venue, "101", 5))
+    assert engine.calculate("10s", T + timedelta(seconds=5)).confirmation_state == "neutral"

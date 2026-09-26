@@ -11,8 +11,8 @@ from integrity_engine.detection.detectors import DetectionConfig, detect
 log=structlog.get_logger(__name__)
 METRICS=("absolute_return","quote_volume","trade_count","price_range","spread_bps","depth_change","orderbook_imbalance_20","trade_imbalance")
 class MoveDetector:
- def __init__(self,producer,config=DetectionConfig()):
-  self.producer=producer;self.config=config;self.baselines={};self.last_emitted={};self.metrics_consumed=self.produced=self.cooldown_suppressed=self.quality_suppressed=0
+ def __init__(self,producer,config=DetectionConfig(), clock=None):
+  self.producer=producer;self.config=config;self.clock=clock or time.monotonic;self.baselines={};self.last_emitted={};self.metrics_consumed=self.produced=self.cooldown_suppressed=self.quality_suppressed=0
  def process(self,metric):
   key=(metric.exchange,metric.symbol,metric.window); bs=self.baselines.setdefault(key,{n:Baseline( max_observations=config_obs(self.config),minimum_observations=self.config.minimum_observations) for n in METRICS})
   ready=all(b.ready for b in bs.values() if b.values)
@@ -22,11 +22,16 @@ class MoveDetector:
   self.metrics_consumed+=1
   if metric.data_quality_flags:self.quality_suppressed+=1
   return anomalies if ready else []
- async def handle(self,metric):
+ def eligible(self,metric):
+  accepted=[]
   for anomaly in self.process(metric):
-   key=(anomaly.event_type,anomaly.window); now=time.monotonic(); previous=self.last_emitted.get(key)
-   if previous and now-previous<self.config.cooldown_seconds and anomaly.severity=="low":self.cooldown_suppressed+=1;continue
-   await self.producer.publish("market.anomalies",f"{anomaly.exchange}:{anomaly.symbol}:{anomaly.event_type}",anomaly.model_dump(mode="json"));self.last_emitted[key]=now;self.produced+=1
+   key=(anomaly.event_type,anomaly.window); now=self.clock(); previous=self.last_emitted.get(key)
+   if previous is not None and now-previous<self.config.cooldown_seconds and anomaly.severity=="low":self.cooldown_suppressed+=1;continue
+   self.last_emitted[key]=now;accepted.append(anomaly)
+  return accepted
+ async def handle(self,metric):
+  for anomaly in self.eligible(metric):
+   await self.producer.publish("market.anomalies",f"{anomaly.exchange}:{anomaly.symbol}:{anomaly.event_type}",anomaly.model_dump(mode="json"));self.produced+=1
  async def run(self,duration=None):
   c=ManualKafkaConsumer(os.environ["KAFKA_BOOTSTRAP_SERVERS"],"market.metrics","market-move-detector-v1");stop=asyncio.Event();loop=asyncio.get_running_loop()
   for s in (signal.SIGINT,signal.SIGTERM):loop.add_signal_handler(s,stop.set)

@@ -12,6 +12,10 @@ class DetectionConfig:
     cooldown_seconds: float=10.0
     baseline_minutes: int=30
     minimum_observations: int=20
+    price_move_threshold: float | None=None
+    volume_z_threshold: float | None=None
+    liquidity_z_threshold: float | None=None
+    imbalance_z_threshold: float | None=None
 
 def evidence(metric,value,baseline,threshold,reason):
     z=baseline.zscore(value)
@@ -24,8 +28,14 @@ def detect(metrics, baselines, config=DetectionConfig()):
         if value is None:
             return None
         b=baselines.get(name); z=b.zscore(abs(value) if absolute else value) if b else None
-        if z is not None and abs(z)>=config.z_threshold:
-            triggered.append(event_type); ev.append(evidence(name,abs(value) if absolute else value,b,config.z_threshold,reason)); return z
+        threshold = (config.volume_z_threshold if event_type == "volume_acceleration" else
+                     config.liquidity_z_threshold if event_type == "liquidity_shock" else
+                     config.imbalance_z_threshold if "imbalance" in event_type else None)
+        threshold = config.z_threshold if threshold is None else threshold
+        if event_type == "rapid_price_move" and config.price_move_threshold is not None and abs(value) < config.price_move_threshold:
+            return None
+        if z is not None and abs(z)>=threshold:
+            triggered.append(event_type); ev.append(evidence(name,abs(value) if absolute else value,b,threshold,reason)); return z
         return None
     z=check("absolute_return","rapid_price_move",metrics.absolute_return,"absolute return exceeds baseline")
     if metrics.price_return is not None: direction="up" if metrics.price_return>0 else "down" if metrics.price_return<0 else "flat"

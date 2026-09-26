@@ -25,7 +25,7 @@ server = MCPServer(
 )
 
 
-@server.tool(description="Summarize current persisted spot, cross-venue, derivatives, integrity and anomaly evidence.")
+@server.tool(description="Separate current market conditions from latest triggered moves and integrity assessments, with independent source freshness. Old events do not describe the current market.")
 def get_market_summary(canonical_pair: str = "BTC-USD", lookback_minutes: int = 15) -> MCPResponse:
     return MCPResponse.model_validate(tools.invoke("get_market_summary", canonical_pair, lookback_minutes))
 
@@ -42,7 +42,7 @@ def get_active_market_moves(canonical_pair: str = "BTC-USD", lookback_minutes: i
     return MCPResponse.model_validate(tools.invoke("get_active_market_moves", canonical_pair, lookback_minutes, minimum_severity))
 
 
-@server.tool(description="Return a stored integrity event or an explicit no-event state.")
+@server.tool(description="Return a stored triggered-event assessment with age and freshness, or no_recent_triggered_move. This is not a current-market integrity score.")
 def get_integrity_score(canonical_pair: str = "BTC-USD", event_id: str | None = None) -> MCPResponse:
     return MCPResponse.model_validate(tools.invoke("get_integrity_score", canonical_pair, event_id))
 
@@ -58,7 +58,7 @@ def compare_exchanges(canonical_pair: str = "BTC-USD", window: str = "30s",
     return MCPResponse.model_validate(tools.invoke("compare_exchanges", canonical_pair, window, lookback_minutes))
 
 
-@server.tool(description="Return latest and recent cross-venue confirmation, freshness and dispersion evidence.")
+@server.tool(description="Return cross-venue directional confirmation and dispersion. Neutral means no meaningful move; a zero ratio in a neutral window is not disagreement. Insufficient data is distinct.")
 def get_cross_venue_confirmation(canonical_pair: str = "BTC-USD", window: str = "30s",
                                  lookback_minutes: int = 15) -> MCPResponse:
     return MCPResponse.model_validate(tools.invoke("get_cross_venue_confirmation", canonical_pair, window, lookback_minutes))

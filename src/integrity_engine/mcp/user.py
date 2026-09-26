@@ -19,12 +19,14 @@ def provision_mcp_user(store: ClickHouseStore, database: str, username: str, pas
     store.client.command(
         "CREATE SETTINGS PROFILE IF NOT EXISTS mcp_reader_profile "
         "SETTINGS readonly = 1, max_execution_time CHANGEABLE_IN_READONLY, "
-        "max_result_rows = 5000, result_overflow_mode = 'throw'"
+        "max_result_rows = 5000, result_overflow_mode = 'throw', "
+        "max_threads = 1, max_block_size = 512, preferred_block_size_bytes = 262144"
     )
     store.client.command(
         "ALTER SETTINGS PROFILE mcp_reader_profile "
         "SETTINGS readonly = 1, max_execution_time CHANGEABLE_IN_READONLY, "
-        "max_result_rows = 5000, result_overflow_mode = 'throw'"
+        "max_result_rows = 5000, result_overflow_mode = 'throw', "
+        "max_threads = 1, max_block_size = 512, preferred_block_size_bytes = 262144"
     )
     store.client.command(
         f"CREATE USER IF NOT EXISTS `{username}` IDENTIFIED WITH sha256_password BY {{password:String}}",

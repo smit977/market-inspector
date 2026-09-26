@@ -4,7 +4,7 @@ from uuid import uuid4
 from integrity_engine.schemas.integrity import MarketIntegrityEvent
 from integrity_engine.integrity.components import cross,spot,liquidity,volume,derivatives,liquidation
 
-def score_integrity(anomaly, metrics=None, cross_metrics=None, derivatives_metrics=None, max_age_seconds=5):
+def score_integrity(anomaly, metrics=None, cross_metrics=None, derivatives_metrics=None, max_age_seconds=5, calculated_at=None):
     now=anomaly.detected_at; quality=[]
     def fresh(value):
         if value is None or not hasattr(value,"calculated_at"): return value
@@ -24,4 +24,4 @@ def score_integrity(anomaly, metrics=None, cross_metrics=None, derivatives_metri
     for c in candidates: quality.extend(c.data_quality_flags)
     from integrity_engine.integrity.classification import classify
     classification,classification_conf=classify(candidates)
-    return MarketIntegrityEvent(event_id=uuid4(),exchange_scope=anomaly.exchange,canonical_pair="BTC-USD",trigger_event_id=anomaly.event_id,trigger_type=anomaly.event_type,trigger_severity=anomaly.severity,move_direction=anomaly.direction,move_window=anomaly.window,integrity_score=score.quantize(Decimal("0.1")),overall_confidence=confidence.quantize(Decimal("0.001")),evidence_coverage=coverage.quantize(Decimal("0.001")),classification=classification,classification_confidence=classification_conf.quantize(Decimal("0.001")),components=candidates,data_quality_flags=sorted(set(quality)),calculated_at=datetime.now(timezone.utc))
+    return MarketIntegrityEvent(event_id=uuid4(),exchange_scope=anomaly.exchange,canonical_pair="BTC-USD",trigger_event_id=anomaly.event_id,trigger_type=anomaly.event_type,trigger_severity=anomaly.severity,move_direction=anomaly.direction,move_window=anomaly.window,integrity_score=score.quantize(Decimal("0.1")),overall_confidence=confidence.quantize(Decimal("0.001")),evidence_coverage=coverage.quantize(Decimal("0.001")),classification=classification,classification_confidence=classification_conf.quantize(Decimal("0.001")),components=candidates,data_quality_flags=sorted(set(quality)),calculated_at=calculated_at or datetime.now(timezone.utc))

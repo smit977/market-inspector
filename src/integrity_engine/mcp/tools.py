@@ -69,6 +69,16 @@ def _decode(row: dict[str, Any]) -> dict[str, Any]:
     if isinstance(original, dict):
         for field in ("spread_change", "depth_change", "price_acceleration"):
             result.setdefault(field, original.get(field))
+    if {"confirmation_state", "confirmation_ratio", "venue_returns"} <= result.keys():
+        state = result["confirmation_state"]
+        valid = [v for v in (result.get("venue_returns") or {}).values() if v is not None]
+        ratio = result.get("confirmation_ratio")
+        if state == "insufficient_data" or ratio is None or not valid:
+            state = "insufficient_data"
+        elif Decimal(str(ratio)) == 0:
+            state = "neutral"
+        result["confirmation_state"] = state
+        result["directional_signal_present"] = (None if state == "insufficient_data" else state != "neutral")
     return result
 
 
@@ -173,7 +183,7 @@ class MCPTools:
                    include_flags: bool = False) -> dict[str, Any] | None:
         flags = f", argMax(data_quality_flags, {time_column}) AS latest_flags" if include_flags else ""
         rows = self._fetch(
-            f"SELECT max({time_column}) AS latest_timestamp{flags} FROM {table} "
+            f"SELECT maxOrNull({time_column}) AS latest_timestamp{flags} FROM {table} "
             f"PREWHERE {time_column} >= now() - INTERVAL {{lookback:UInt32}} MINUTE "
             f"AND {time_column} <= now()",
             {"lookback": lookback_minutes}, 1)
@@ -290,6 +300,27 @@ class MCPTools:
         parsed = _last_time(timestamp)
         return parsed is None or (datetime.now(timezone.utc) - parsed).total_seconds() > threshold
 
+    def _freshness_state(self, timestamp: Any, *, event: bool = False) -> dict[str, Any]:
+        parsed = _last_time(timestamp)
+        # Empty ClickHouse max aggregates historically returned the Unix epoch.
+        if parsed is not None and parsed.timestamp() <= 0:
+            parsed = None
+        age = max(0.0, (datetime.now(timezone.utc) - parsed).total_seconds()) if parsed else None
+        status = "no_data" if age is None else "stale" if age > self.stale_after_seconds else "fresh"
+        result = {"status": status, "data_as_of": parsed,
+                  "age_seconds": round(age, 3) if age is not None else None,
+                  "freshness_threshold_seconds": self.stale_after_seconds}
+        if event:
+            result["state"] = "recent_triggered_move" if status == "fresh" else "no_recent_triggered_move"
+        return result
+
+    def _event_context(self, row: dict[str, Any]) -> dict[str, Any]:
+        freshness = self._freshness_state(_last_time(row), event=True)
+        return {**row, "event_age_seconds": freshness["age_seconds"],
+                "event_status": freshness["status"], "state": freshness["state"],
+                "assessment_scope": "triggered_event_only",
+                "describes_current_market": False}
+
     def get_market_summary(self, canonical_pair: str = "BTC-USD", lookback_minutes: int = 15) -> dict[str, Any]:
         args = LookbackInput(canonical_pair=canonical_pair, lookback_minutes=lookback_minutes)
         pair, lookback = args.canonical_pair, args.lookback_minutes
@@ -300,16 +331,17 @@ class MCPTools:
         anomaly = self._latest_anomaly(pair, lookback)
         latest = market[0] if market else None
         cross_latest = cross[0] if cross else None
-        integrity_latest = integrity[0] if integrity else None
-        anomaly_latest = anomaly[0] if anomaly else None
+        integrity_latest = self._event_context(integrity[0]) if integrity else None
+        anomaly_latest = self._event_context(anomaly[0]) if anomaly else None
         timestamps = {"market_metrics": latest.get("timestamp") if latest else None,
                       "cross_venue_metrics": cross_latest.get("timestamp") if cross_latest else None,
                       "derivatives_metrics": self._max_time(derivatives),
                       "integrity": integrity_latest.get("calculated_at") if integrity_latest else None,
                       "anomalies": anomaly_latest.get("detected_at") if anomaly_latest else None}
-        stale = [table for table, timestamp in timestamps.items() if timestamp and self._stale(timestamp)]
-        if not market: stale.append("market_metrics")
-        if not cross: stale.append("cross_venue_metrics")
+        freshness = {name: self._freshness_state(stamp, event=name in {"integrity", "anomalies"})
+                     for name, stamp in timestamps.items()}
+        live_names = ("market_metrics", "cross_venue_metrics", "derivatives_metrics")
+        stale = [name for name in live_names if freshness[name]["status"] != "fresh"]
         metrics = {
             "latest_reference_price": cross_latest.get("median_price") if cross_latest else None,
             "price_change": latest.get("price_return") if latest else None,
@@ -318,20 +350,51 @@ class MCPTools:
             "spread_bps": latest.get("spread_bps") if latest else None,
             "orderbook_imbalance": latest.get("orderbook_imbalance_20") if latest else None,
             "cross_venue_confirmation": cross_latest.get("confirmation_ratio") if cross_latest else None,
+            "cross_venue_confirmation_state": cross_latest.get("confirmation_state") if cross_latest else "insufficient_data",
+            "directional_signal_present": cross_latest.get("directional_signal_present") if cross_latest else None,
             "cross_venue_dispersion_bps": cross_latest.get("dispersion_bps") if cross_latest else None,
             "active_venues": cross_latest.get("active_venue_count") if cross_latest else None,
         }
-        data = {"canonical_pair": pair, **metrics, "latest_derivatives_summary": derivatives,
+        limitations = {name: sorted({flag for row in rows for flag in (row.get("data_quality_flags") or [])})
+                       for name, rows in (("market_metrics", market), ("cross_venue_metrics", cross),
+                                          ("derivatives_metrics", derivatives),
+                                          ("latest_integrity_event", integrity), ("latest_anomaly", anomaly))}
+        flags = sorted(set(stale + [flag for values in limitations.values() for flag in values]))
+        recent_move = any(freshness[name]["status"] == "fresh" for name in ("integrity", "anomalies"))
+        move_state = "recent_triggered_move" if recent_move else "no_recent_triggered_move"
+        if not recent_move:
+            flags.append("no_recent_triggered_move")
+        current = {**metrics, "spot_metrics_context": {
+            "exchange": latest.get("exchange") if latest else None,
+            "symbol": latest.get("symbol") if latest else None,
+            "window": "30s", "timestamp": timestamps["market_metrics"],
+            "volume_unit": "quote_asset", "return_unit": "fraction"},
+            "reference_price_context": {"method": "cross_venue_median", "window": "30s",
+                                        "timestamp": timestamps["cross_venue_metrics"]},
+            "derivatives_window": "1m", "derivatives": derivatives,
+            "freshness": {name: freshness[name] for name in live_names}}
+        data = {"canonical_pair": pair, **metrics, "current_market_state": current,
+                "triggered_move_state": move_state,
+                "latest_detected_move": anomaly_latest,
+                "latest_triggered_integrity_event": integrity_latest,
+                # Retain legacy aliases, with the same explicit event context.
+                "latest_derivatives_summary": derivatives,
                 "latest_integrity_event": integrity_latest, "latest_anomaly": anomaly_latest,
-                "data_freshness": timestamps}
-        flags = list(stale)
-        if integrity_latest is None:
-            flags.append("no_recent_integrity_event")
-        if not derivatives:
-            flags.append("derivatives_unavailable_in_requested_window")
-        status = "no_data" if not any((market, cross, derivatives, integrity, anomaly)) else "stale_data" if stale else "ok"
-        return self._result(data, ["market_metrics", "cross_venue_metrics", "derivatives_metrics", "market_integrity", "market_anomalies"],
-                            "calculated_metric", flags, self._max_time(latest, cross_latest, derivatives[0] if derivatives else None, integrity_latest, anomaly_latest), status)
+                "data_freshness": timestamps, "freshness": freshness,
+                "market_data_status": freshness["market_metrics"]["status"],
+                "cross_venue_status": freshness["cross_venue_metrics"]["status"],
+                "derivatives_status": freshness["derivatives_metrics"]["status"],
+                "latest_anomaly_status": freshness["anomalies"]["status"],
+                "latest_integrity_event_status": freshness["integrity"]["status"],
+                "data_limitations": limitations}
+        status = "no_data" if not any((market, cross, derivatives)) else "stale_data" if stale else "ok"
+        result = self._result(data, ["market_metrics", "cross_venue_metrics", "derivatives_metrics", "market_integrity", "market_anomalies"],
+                            "calculated_metric", flags, self._max_time(latest, cross_latest, derivatives), status)
+        result["evidence"]["calculated_metric"] = _safe(current)
+        result["evidence"]["statistical_inference"] = _safe({
+            "latest_detected_move": anomaly_latest, "latest_integrity_assessment": integrity_latest,
+            "triggered_move_state": move_state})
+        return result
 
     def get_latest_market_metrics(self, canonical_pair: str = "BTC-USD", exchange: str | None = None,
                                   window: str = "30s", lookback_minutes: int = 15) -> dict[str, Any]:
@@ -359,29 +422,35 @@ class MCPTools:
             if threshold is None:
                 raise ValueError("invalid_argument")
             rows = [r for r in rows if SEVERITY_ORDER.get(str(r.get("severity", "")).lower(), 0) >= threshold]
+        rows = [self._event_context(row) for row in rows]
         flags = sorted({f for row in rows for f in (row.get("data_quality_flags") or [])})
+        if not any(row["event_status"] == "fresh" for row in rows):
+            flags.append("no_recent_triggered_move")
         return self._result(rows, ["market_anomalies"], "statistical_inference", flags,
-                            rows[0].get("detected_at") if rows else None)
+                            rows[0].get("detected_at") if rows else None,
+                            "stale_data" if rows and rows[0]["event_status"] == "stale" else None)
 
     def get_integrity_score(self, canonical_pair: str = "BTC-USD", event_id: str | None = None) -> dict[str, Any]:
         pair = LookbackInput(canonical_pair=canonical_pair).canonical_pair
         rows = self._latest_integrity(pair, event_id)
         if not rows:
-            return self._result({"state": "no_recent_integrity_event", "latest_integrity_event": None},
-                                ["market_integrity"], flags=["no_recent_integrity_event"], status="no_data")
+            return self._result({"state": "no_recent_triggered_move", "latest_integrity_event": None, "event_age_seconds": None, "event_status": "no_data"},
+                                ["market_integrity"], flags=["no_recent_integrity_event", "no_recent_triggered_move"], status="no_data")
         row = rows[0]
         fields = {k: row.get(k) for k in ("event_id", "calculated_at", "canonical_pair", "integrity_score",
                   "overall_confidence", "evidence_coverage", "classification", "classification_confidence",
                   "trigger_event_id", "trigger_type", "trigger_severity", "move_direction", "move_window", "data_quality_flags")}
-        return self._result(fields, ["market_integrity"], "calculated_metric", row.get("data_quality_flags", []), row.get("calculated_at"))
+        fields = self._event_context(fields)
+        return self._result(fields, ["market_integrity"], "statistical_inference", row.get("data_quality_flags", []),
+                            row.get("calculated_at"), "stale_data" if fields["event_status"] == "stale" else "ok")
 
     def get_integrity_components(self, event_id: str | None = None,
                                  canonical_pair: str = "BTC-USD") -> dict[str, Any]:
         pair = LookbackInput(canonical_pair=canonical_pair).canonical_pair
         rows = self._latest_integrity(pair, event_id, include_components=True)
         if not rows:
-            return self._result({"state": "no_recent_integrity_event", "components": []},
-                                ["market_integrity"], flags=["no_recent_integrity_event"], status="no_data")
+            return self._result({"state": "no_recent_triggered_move", "components": [], "event_age_seconds": None, "event_status": "no_data"},
+                                ["market_integrity"], flags=["no_recent_integrity_event", "no_recent_triggered_move"], status="no_data")
         row = rows[0]
         raw = row.get("components") or []
         if isinstance(raw, str):
@@ -399,9 +468,11 @@ class MCPTools:
                     "availability": value.get("availability", "available"), "confidence": value.get("confidence"),
                     "weight": value.get("weight"), "status": value.get("status"),
                     "evidence": value.get("evidence", []), "data_quality_flags": value.get("data_quality_flags", [])})
-        return self._result({"event_id": row.get("event_id"), "calculated_at": row.get("calculated_at"),
-                             "components": components}, ["market_integrity"], "observed_fact",
-                            row.get("data_quality_flags", []), row.get("calculated_at"))
+        data = self._event_context({"event_id": row.get("event_id"), "calculated_at": row.get("calculated_at"),
+                                    "components": components})
+        return self._result(data, ["market_integrity"], "statistical_inference",
+                            row.get("data_quality_flags", []), row.get("calculated_at"),
+                            "stale_data" if data["event_status"] == "stale" else "ok")
 
     def compare_exchanges(self, canonical_pair: str = "BTC-USD", window: str = "30s",
                           lookback_minutes: int = 15) -> dict[str, Any]:
@@ -500,9 +571,13 @@ class MCPTools:
             "window, exchange, symbol, baseline_ready, metrics_snapshot, evidence, data_quality_flags "
             "FROM market_anomalies WHERE " + " AND ".join(where) +
             " ORDER BY detected_at DESC, event_id LIMIT 1 BY event_id LIMIT {limit:UInt32}", params, limit)
+        rows = [self._event_context(row) for row in rows]
         flags = sorted({f for row in rows for f in (row.get("data_quality_flags") or [])})
+        if not any(row["event_status"] == "fresh" for row in rows):
+            flags.append("no_recent_triggered_move")
         return self._result(rows, ["market_anomalies"], "statistical_inference", flags,
-                            rows[0].get("detected_at") if rows else None)
+                            rows[0].get("detected_at") if rows else None,
+                            "stale_data" if rows and rows[0]["event_status"] == "stale" else None)
 
     def _historical_similarity(self, anchor: dict[str, Any], candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         def components(row):
@@ -582,10 +657,9 @@ class MCPTools:
         for table, time_col in TABLES.items():
             aggregate = self._freshness(table, time_col, lookback_minutes, include_flags=True)
             newest = aggregate.get("latest_timestamp") if aggregate else None
-            freshness[table] = {"latest_timestamp": newest,
-                                "age_seconds": round((datetime.now(timezone.utc) - _last_time(newest)).total_seconds(), 3)
-                                if newest and _last_time(newest) else None,
-                                "stale": self._stale(newest)}
+            state = self._freshness_state(newest, event=table in {"market_anomalies", "market_integrity"})
+            freshness[table] = {**state, "latest_timestamp": state["data_as_of"],
+                                "stale": state["status"] == "stale"}
             table_flags[table] = sorted(set((aggregate or {}).get("latest_flags") or []))
         missing_fields = ("funding_rate", "open_interest", "liquidation_count", "spot_reference_price", "basis_bps")
         missing_expr = ", ".join(f"countIf({field} IS NULL) AS {field}_missing" for field in missing_fields)
@@ -603,7 +677,7 @@ class MCPTools:
         return self._result(data, TABLES_LIST, "observed_fact",
                             sorted({f for flags in table_flags.values() for f in flags}),
                             self._max_time(*(v["latest_timestamp"] for v in freshness.values())),
-                            "stale_data" if data["stale_feeds"] else "ok")
+                            "stale_data" if any(freshness[name]["status"] != "fresh" for name in ("market_metrics", "cross_venue_metrics", "derivatives_metrics")) else "ok")
 
     def get_pipeline_health(self) -> dict[str, Any]:
         start = monotonic()
