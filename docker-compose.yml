@@ -44,6 +44,10 @@ services:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
       CLICKHOUSE_ENABLED: ${CLICKHOUSE_ENABLED:-true}
+      CLICKHOUSE_BATCH_SIZE: ${CLICKHOUSE_BATCH_SIZE:-500}
+      CLICKHOUSE_FLUSH_INTERVAL_MS: ${CLICKHOUSE_FLUSH_INTERVAL_MS:-1000}
+      CLICKHOUSE_MAX_RETRIES: ${CLICKHOUSE_MAX_RETRIES:-3}
+      CLICKHOUSE_RETRY_BACKOFF_MS: ${CLICKHOUSE_RETRY_BACKOFF_MS:-500}
     volumes:
       - ./src:/app/src
       - ./scripts:/app/scripts
@@ -124,6 +128,7 @@ services:
 
   clickhouse-writer:
     restart: unless-stopped
+    stop_grace_period: 60s
     build:
       context: .
       dockerfile: Dockerfile
@@ -132,15 +137,20 @@ services:
     command: ["python", "scripts/run_clickhouse_writer.py"]
     environment:
       PROCESSING_MODE: ${PROCESSING_MODE:-live}
+      PROCESSING_RUN_ID: ${CLICKHOUSE_PROCESSING_RUN_ID:-v2}
+      CLICKHOUSE_CONSUMER_GROUP_ID: ${CLICKHOUSE_CONSUMER_GROUP_ID:-clickhouse-writer-v1}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
       CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-9000}
+      CLICKHOUSE_HTTP_PORT: ${CLICKHOUSE_HTTP_PORT:-8123}
       CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-market_integrity}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
       CLICKHOUSE_ENABLED: ${CLICKHOUSE_ENABLED:-true}
       CLICKHOUSE_BATCH_SIZE: ${CLICKHOUSE_BATCH_SIZE:-500}
       CLICKHOUSE_FLUSH_INTERVAL_MS: ${CLICKHOUSE_FLUSH_INTERVAL_MS:-1000}
+      CLICKHOUSE_MAX_RETRIES: ${CLICKHOUSE_MAX_RETRIES:-3}
+      CLICKHOUSE_RETRY_BACKOFF_MS: ${CLICKHOUSE_RETRY_BACKOFF_MS:-500}
     volumes:
       - ./src:/app/src
       - ./scripts:/app/scripts
@@ -207,7 +217,7 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 12

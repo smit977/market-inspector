@@ -34,6 +34,10 @@ Temporary coordinator commit errors receive bounded retries without discarding
 pending offsets. Invalid detector/integrity inputs are delivered to `system.dlq`
 before acknowledgement. Failed deliveries remain unacknowledged for replay.
 Delivery remains at-least-once; ClickHouse deduplication is eventual.
+For ClickHouse specifically, a failure record in the DLQ does **not** acknowledge
+the input: offsets advance only after every table insert in that batch succeeds.
+See [analytical persistence](docs/clickhouse-persistence.md) for migration,
+precision, retry/recovery, duplicate handling, and query examples.
 
 ## Prerequisites
 

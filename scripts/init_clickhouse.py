@@ -1,8 +1,11 @@
 """Idempotently initialize ClickHouse analytical tables."""
-import os
-from integrity_engine.storage.clickhouse import ClickHouseStore
+from integrity_engine.storage.clickhouse import ClickHouseSettings, ClickHouseStore
 
 if __name__ == "__main__":
-    if os.getenv("CLICKHOUSE_ENABLED", "true").lower() in {"1", "true", "yes"}:
-        ClickHouseStore().initialize()
-        print("ClickHouse schema initialized")
+    if ClickHouseSettings().enabled:
+        store = ClickHouseStore()
+        try:
+            store.initialize()
+            print("ClickHouse schema initialized")
+        finally:
+            store.close()

@@ -124,6 +124,24 @@ class ManualKafkaConsumer:
         self._since_commit = 0
         self._last_commit = time.monotonic()
 
+    async def lag_snapshot(self):
+        """Read-only committed lag; never alter assignments or source offsets."""
+        def snapshot():
+            partitions = self._consumer.assignment()
+            committed = self._consumer.committed(partitions, timeout=2) if partitions else []
+            positions = {(p.topic, p.partition): p.offset for p in self._consumer.position(partitions)}
+            result = {}
+            for part in committed:
+                _, high = self._consumer.get_watermark_offsets(part, timeout=1)
+                position = part.offset if part.offset >= 0 else positions.get((part.topic, part.partition), -1)
+                result[f"{part.topic}:{part.partition}"] = max(0, high - position) if position >= 0 else None
+            return result
+        try:
+            return await asyncio.to_thread(snapshot)
+        except Exception as error:
+            structlog.get_logger().warning("consumer_lag_unavailable", error_type=type(error).__name__)
+            return None
+
     async def close(self) -> None:
         try:
             await self.flush_commits()

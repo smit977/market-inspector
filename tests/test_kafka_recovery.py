@@ -38,3 +38,22 @@ def test_failed_commit_retains_offsets_and_bounds_retries(monkeypatch, code, att
         worker._flush()
     assert client.commit.call_count == attempts
     assert worker.tracker.ready == {("topic", 0): 12}
+
+
+async def test_lag_snapshot_is_read_only(monkeypatch):
+    from confluent_kafka import TopicPartition
+    worker, client = consumer(monkeypatch)
+    client.assignment.return_value = [TopicPartition("topic", 0)]
+    client.committed.return_value = [TopicPartition("topic", 0, 12)]
+    client.position.return_value = [TopicPartition("topic", 0, 15)]
+    client.get_watermark_offsets.return_value = (0, 17)
+    assert await worker.lag_snapshot() == {"topic:0": 5}
+    client.commit.assert_not_called()
+    assert worker.tracker.ready == {("topic", 0): 12}
+
+
+async def test_lag_failure_is_unavailable_not_a_processing_failure(monkeypatch):
+    worker, client = consumer(monkeypatch)
+    client.assignment.side_effect = RuntimeError("broker unavailable")
+    assert await worker.lag_snapshot() is None
+    client.commit.assert_not_called()
