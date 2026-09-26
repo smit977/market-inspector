@@ -1,0 +1,216 @@
+{
+  "id": null,
+  "uid": "historical-events",
+  "title": "Historical Event Comparison",
+  "description": "",
+  "tags": [
+    "market-move-integrity",
+    "clickhouse"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1s",
+      "2s",
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "refresh": "30s",
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT calculated_at, event_id, canonical_pair, trigger_type, trigger_severity, integrity_score, overall_confidence, evidence_coverage, classification, move_direction, move_window FROM market_integrity FINAL WHERE calculated_at >= now() - INTERVAL 30 DAY AND calculated_at <= now() AND canonical_pair = '${canonical_pair}' AND event_id IN (${event_id:singlequote}) ORDER BY calculated_at DESC LIMIT 500",
+          "refId": "A"
+        }
+      ],
+      "title": "Historical integrity events",
+      "description": "",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT event_id, calculated_at, JSONExtractString(component, 'name') AS component, if(JSONExtractRaw(component, 'score') = 'null', 'N/A', JSONExtractRaw(component, 'score')) AS score, JSONExtractRaw(component, 'confidence') AS confidence, JSONExtractString(component, 'availability') AS availability FROM market_integrity FINAL ARRAY JOIN JSONExtractArrayRaw(components) AS component WHERE calculated_at >= now() - INTERVAL 30 DAY AND calculated_at <= now() AND canonical_pair = '${canonical_pair}' AND event_id IN (${event_id:singlequote}) ORDER BY calculated_at DESC LIMIT 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "Selected-event component comparison",
+      "description": "",
+      "type": "table"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Select one or more event IDs above. Historical comparisons are record-level; similarity search is not implemented."
+      },
+      "targets": [],
+      "title": "Comparison scope",
+      "description": "Historical comparison is a record-level comparison of selected triggered integrity events. This view does not perform similarity scoring or imply machine-learning matches.",
+      "type": "text"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "canonical_pair",
+        "label": "Pair",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "market-integrity-clickhouse"
+        },
+        "definition": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "query": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "current": {
+          "text": "BTC-USD",
+          "value": "BTC-USD"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "refresh": 2,
+        "skipUrlSync": false,
+        "regex": "",
+        "sort": 1,
+        "allowCustomValue": false,
+        "queryValue": ""
+      },
+      {
+        "name": "event_id",
+        "label": "Integrity event",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "market-integrity-clickhouse"
+        },
+        "definition": "SELECT event_id FROM market_integrity FINAL WHERE calculated_at >= now() - INTERVAL 30 DAY ORDER BY calculated_at DESC LIMIT 500",
+        "query": "SELECT event_id FROM market_integrity FINAL WHERE calculated_at >= now() - INTERVAL 30 DAY ORDER BY calculated_at DESC LIMIT 500",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": true,
+        "hide": 0,
+        "refresh": 2,
+        "skipUrlSync": false,
+        "regex": "",
+        "sort": 1,
+        "allowCustomValue": false,
+        "queryValue": ""
+      }
+    ]
+  },
+  "links": [],
+  "liveNow": false
+}

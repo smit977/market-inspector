@@ -17,6 +17,7 @@ dependencies = [
     "orjson>=3.10,<4",
     "structlog>=25,<26",
     "clickhouse-connect>=0.8,<1",
+    "mcp>=2.0,<3",
 ]
 
 [project.optional-dependencies]

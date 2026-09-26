@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: Market Move Integrity
+    orgId: 1
+    folder: Market Move Integrity
+    folderUid: market-move-integrity
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

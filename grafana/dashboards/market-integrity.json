@@ -1,0 +1,560 @@
+{
+  "id": null,
+  "uid": "market-integrity",
+  "title": "Market Move Integrity",
+  "description": "",
+  "tags": [
+    "market-move-integrity",
+    "clickhouse"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1s",
+      "2s",
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "refresh": "2s",
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT calculated_at AS time, integrity_score AS value FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' AND ('${classification}' = 'all' OR classification = '${classification}') ORDER BY time LIMIT 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "Integrity score history",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(integrity_score, calculated_at) AS value FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' AND ('${classification}' = 'all' OR classification = '${classification}')",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest integrity score",
+      "description": "No recent trigger returns N/A.",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(overall_confidence, calculated_at) AS value FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' AND ('${classification}' = 'all' OR classification = '${classification}')",
+          "refId": "A"
+        }
+      ],
+      "title": "Overall confidence",
+      "description": "",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(evidence_coverage, calculated_at) AS value FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' AND ('${classification}' = 'all' OR classification = '${classification}')",
+          "refId": "A"
+        }
+      ],
+      "title": "Evidence coverage",
+      "description": "",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT calculated_at AS time, classification, trigger_severity, move_direction, move_window FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' AND ('${classification}' = 'all' OR classification = '${classification}') ORDER BY time DESC LIMIT 500",
+          "refId": "A"
+        }
+      ],
+      "title": "Classification history",
+      "description": "",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT calculated_at AS time, JSONExtractString(component, 'name') AS metric, JSONExtract(component, 'score', 'Nullable(Float64)') AS value FROM market_integrity FINAL ARRAY JOIN JSONExtractArrayRaw(components) AS component WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' AND JSONExtractRaw(component, 'score') != 'null' ORDER BY time LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "Integrity component scores (NULL scores omitted)",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT calculated_at, JSONExtractString(component, 'name') AS component, if(JSONExtractRaw(component, 'score') = 'null', 'N/A', JSONExtractRaw(component, 'score')) AS score, JSONExtractRaw(component, 'confidence') AS confidence, JSONExtractString(component, 'status') AS status, JSONExtractString(component, 'availability') AS availability, JSONExtractRaw(component, 'evidence') AS evidence, JSONExtractRaw(component, 'data_quality_flags') AS data_quality_flags FROM market_integrity FINAL ARRAY JOIN JSONExtractArrayRaw(components) AS component WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' ORDER BY calculated_at DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Component evidence and confidence",
+      "description": "",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT calculated_at, trigger_event_id, trigger_type, trigger_severity, move_direction, move_window, integrity_score, overall_confidence, evidence_coverage FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' ORDER BY calculated_at DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Trigger event information",
+      "description": "",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT calculated_at, event_id, data_quality_flags FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}' AND notEmpty(data_quality_flags) ORDER BY calculated_at DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Data-quality flags",
+      "description": "",
+      "type": "table"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "canonical_pair",
+        "label": "Pair",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "market-integrity-clickhouse"
+        },
+        "definition": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "query": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "current": {
+          "text": "BTC-USD",
+          "value": "BTC-USD"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "refresh": 2,
+        "skipUrlSync": false,
+        "regex": "",
+        "sort": 1,
+        "allowCustomValue": false,
+        "queryValue": ""
+      },
+      {
+        "name": "classification",
+        "label": "Classification",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "market-integrity-clickhouse"
+        },
+        "definition": "SELECT DISTINCT classification FROM market_integrity WHERE calculated_at >= now() - INTERVAL 7 DAY ORDER BY classification LIMIT 20",
+        "query": "SELECT DISTINCT classification FROM market_integrity WHERE calculated_at >= now() - INTERVAL 7 DAY ORDER BY classification LIMIT 20",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "options": [],
+        "includeAll": true,
+        "multi": false,
+        "hide": 0,
+        "refresh": 2,
+        "skipUrlSync": false,
+        "regex": "",
+        "sort": 1,
+        "allowCustomValue": false,
+        "queryValue": "",
+        "allValue": "all"
+      }
+    ]
+  },
+  "links": [],
+  "liveNow": false
+}

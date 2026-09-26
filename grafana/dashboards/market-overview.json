@@ -1,0 +1,1038 @@
+{
+  "id": null,
+  "uid": "market-overview",
+  "title": "Market Overview",
+  "description": "",
+  "tags": [
+    "market-move-integrity",
+    "clickhouse"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1s",
+      "2s",
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "refresh": "2s",
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(median_price, timestamp) AS value FROM cross_venue_metrics FINAL WHERE $__timeFilter(timestamp) AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${window}' = 'all' OR window = '${window}')",
+          "refId": "A"
+        }
+      ],
+      "title": "Current BTC reference price",
+      "description": "Latest cross-venue median in the selected dashboard range.",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, median_price AS value FROM cross_venue_metrics FINAL WHERE $__timeFilter(timestamp) AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time LIMIT 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "Cross-venue median price",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(price_return, timestamp) AS value FROM market_metrics FINAL WHERE $__timeFilter(timestamp) AND symbol IN ('${canonical_pair}', replaceOne('${canonical_pair}', '-', ''), replaceOne('${canonical_pair}', '-', 'USDT'), replaceOne('${canonical_pair}', '-', '/')) AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') AND window = '30s'",
+          "refId": "A"
+        }
+      ],
+      "title": "30s price return",
+      "description": "",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, exchange AS metric, quote_volume AS value FROM market_metrics FINAL WHERE $__timeFilter(timestamp) AND symbol IN ('${canonical_pair}', replaceOne('${canonical_pair}', '-', ''), replaceOne('${canonical_pair}', '-', 'USDT'), replaceOne('${canonical_pair}', '-', '/')) AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time, metric LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "Spot quote volume",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, exchange AS metric, trade_count AS value FROM market_metrics FINAL WHERE $__timeFilter(timestamp) AND symbol IN ('${canonical_pair}', replaceOne('${canonical_pair}', '-', ''), replaceOne('${canonical_pair}', '-', 'USDT'), replaceOne('${canonical_pair}', '-', '/')) AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time, metric LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "Trade count",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, exchange, vwap, mid_price FROM market_metrics FINAL WHERE $__timeFilter(timestamp) AND symbol IN ('${canonical_pair}', replaceOne('${canonical_pair}', '-', ''), replaceOne('${canonical_pair}', '-', 'USDT'), replaceOne('${canonical_pair}', '-', '/')) AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "VWAP and mid-price",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, exchange AS metric, spread_bps AS value FROM market_metrics FINAL WHERE $__timeFilter(timestamp) AND symbol IN ('${canonical_pair}', replaceOne('${canonical_pair}', '-', ''), replaceOne('${canonical_pair}', '-', 'USDT'), replaceOne('${canonical_pair}', '-', '/')) AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time, metric LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "Spread (bps)",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, exchange AS metric, orderbook_imbalance_20 AS value FROM market_metrics FINAL WHERE $__timeFilter(timestamp) AND symbol IN ('${canonical_pair}', replaceOne('${canonical_pair}', '-', ''), replaceOne('${canonical_pair}', '-', 'USDT'), replaceOne('${canonical_pair}', '-', '/')) AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time, metric LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "Order-book imbalance (20 levels)",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, exchange, bid_depth_20, ask_depth_20 FROM market_metrics FINAL WHERE $__timeFilter(timestamp) AND symbol IN ('${canonical_pair}', replaceOne('${canonical_pair}', '-', ''), replaceOne('${canonical_pair}', '-', 'USDT'), replaceOne('${canonical_pair}', '-', '/')) AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "Bid depth vs ask depth",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(confirmation_ratio, timestamp) AS value FROM cross_venue_metrics FINAL WHERE $__timeFilter(timestamp) AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${window}' = 'all' OR window = '${window}')",
+          "refId": "A"
+        }
+      ],
+      "title": "Cross-venue confirmation ratio",
+      "description": "",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, dispersion_bps AS value FROM cross_venue_metrics FINAL WHERE $__timeFilter(timestamp) AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time LIMIT 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "Cross-venue dispersion (bps)",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(active_venue_count, timestamp) AS value FROM cross_venue_metrics FINAL WHERE $__timeFilter(timestamp) AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${window}' = 'all' OR window = '${window}')",
+          "refId": "A"
+        }
+      ],
+      "title": "Active venues",
+      "description": "",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(perpetual_to_spot_volume_ratio, timestamp) AS value FROM derivatives_metrics FINAL WHERE $__timeFilter(timestamp) AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}')",
+          "refId": "A"
+        }
+      ],
+      "title": "Perpetual / spot volume ratio",
+      "description": "",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT timestamp AS time, exchange AS metric, basis_bps AS value FROM derivatives_metrics FINAL WHERE $__timeFilter(timestamp) AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${exchange}' = 'all' OR exchange = '${exchange}') AND ('${window}' = 'all' OR window = '${window}') ORDER BY time, metric LIMIT 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "Basis (bps) by derivatives venue",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT argMax(integrity_score, calculated_at) AS value FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}'",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest integrity score",
+      "description": "No recent triggered move returns N/A; the score is event-triggered, not continuous.",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT if(count() = 0, 'No recent triggered move', argMax(classification, calculated_at)) AS classification FROM market_integrity FINAL WHERE $__timeFilter(calculated_at) AND canonical_pair = '${canonical_pair}'",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest triggered move classification",
+      "description": "",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT stream, latest_at, dateDiff('second', latest_at, now()) AS age_seconds FROM (SELECT 'market metrics' AS stream, max(timestamp) AS latest_at FROM market_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'cross-venue metrics', max(timestamp) FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'derivatives metrics', max(timestamp) FROM derivatives_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'integrity events', max(calculated_at) FROM market_integrity WHERE calculated_at >= now() - INTERVAL 1 DAY) ORDER BY stream LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Data freshness by persisted stream",
+      "description": "Freshness is computed from rows persisted in the last day; no event means NULL.",
+      "type": "table"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "canonical_pair",
+        "label": "Pair",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "market-integrity-clickhouse"
+        },
+        "definition": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "query": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "current": {
+          "text": "BTC-USD",
+          "value": "BTC-USD"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "refresh": 2,
+        "skipUrlSync": false,
+        "regex": "",
+        "sort": 1,
+        "allowCustomValue": false,
+        "queryValue": ""
+      },
+      {
+        "name": "exchange",
+        "label": "Venue",
+        "type": "custom",
+        "query": "all,binance,coinbase,kraken,okx,bybit",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "refresh": 0,
+        "skipUrlSync": false
+      },
+      {
+        "name": "window",
+        "label": "Window",
+        "type": "custom",
+        "query": "10s,30s,1m,5m",
+        "current": {
+          "text": "30s",
+          "value": "30s"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "refresh": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "links": [],
+  "liveNow": false
+}

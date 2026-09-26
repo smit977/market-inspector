@@ -64,8 +64,10 @@ All five tables use monthly partitions and `ReplacingMergeTree`, with ordering
 by pair/symbol, exchange where applicable, window, event time, and event ID.
 This preserves existing time-series keys and avoids small time partitions.
 
-Financial values use `Nullable(Decimal(76,38))`. Float inputs, nonfinite values,
-and values that cannot fit exactly are rejected rather than silently rounded.
+Financial values use `Nullable(Decimal(76,38))`, with derivatives
+`open_interest_change_pct` stored as `Nullable(Decimal(76,50))` to preserve very
+small percentage changes from the open-interest source. Float inputs, nonfinite
+values, and values that cannot fit exactly are rejected rather than silently rounded.
 Missing financial values and missing counts stay NULL; a reported count of zero
 remains zero. Nested venue maps and anomaly/integrity evidence are JSON strings
 with decimal strings preserved. Use `JSONExtract*` to inspect them.

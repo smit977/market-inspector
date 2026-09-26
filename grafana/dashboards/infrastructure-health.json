@@ -1,0 +1,220 @@
+{
+  "id": null,
+  "uid": "infrastructure-health",
+  "title": "Streaming Infrastructure Health",
+  "description": "",
+  "tags": [
+    "market-move-integrity",
+    "clickhouse"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1s",
+      "2s",
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "refresh": "2s",
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT stream, latest_at, dateDiff('second', latest_at, now()) AS age_seconds FROM (SELECT 'market metrics' AS stream, max(timestamp) AS latest_at FROM market_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'cross-venue metrics', max(timestamp) FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'derivatives metrics', max(timestamp) FROM derivatives_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'anomalies', max(detected_at) FROM market_anomalies WHERE detected_at >= now() - INTERVAL 1 DAY UNION ALL SELECT 'integrity events', max(calculated_at) FROM market_integrity WHERE calculated_at >= now() - INTERVAL 1 DAY) ORDER BY stream LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Persisted-data freshness",
+      "description": "Freshness is derived from persisted event timestamps, bounded to the last day.",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT bucket AS time, stream AS metric, events / 10.0 AS value FROM (SELECT toStartOfInterval(ts, INTERVAL 10 SECOND) AS bucket, stream, count() AS events FROM (SELECT timestamp AS ts, 'market metrics' AS stream FROM market_metrics FINAL WHERE $__timeFilter(timestamp) UNION ALL SELECT timestamp, 'cross-venue metrics' FROM cross_venue_metrics FINAL WHERE $__timeFilter(timestamp) UNION ALL SELECT timestamp, 'derivatives metrics' FROM derivatives_metrics FINAL WHERE $__timeFilter(timestamp) UNION ALL SELECT detected_at, 'anomalies' FROM market_anomalies FINAL WHERE $__timeFilter(detected_at) UNION ALL SELECT calculated_at, 'integrity events' FROM market_integrity FINAL WHERE $__timeFilter(calculated_at)) GROUP BY bucket, stream) ORDER BY time, metric LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "Persisted rows per second (10s buckets)",
+      "description": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT stream, latest_at FROM (SELECT 'market metrics' AS stream, max(timestamp) AS latest_at FROM market_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'cross-venue metrics', max(timestamp) FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'derivatives metrics', max(timestamp) FROM derivatives_metrics WHERE timestamp >= now() - INTERVAL 1 DAY UNION ALL SELECT 'anomalies', max(detected_at) FROM market_anomalies WHERE detected_at >= now() - INTERVAL 1 DAY UNION ALL SELECT 'integrity events', max(calculated_at) FROM market_integrity WHERE calculated_at >= now() - INTERVAL 1 DAY) ORDER BY stream LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest timestamp by table",
+      "description": "",
+      "type": "table"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Not persisted yet:** Kafka consumer lag, producer errors, worker health, DLQ rate, WebSocket status. No zero-valued placeholder panels are used."
+      },
+      "targets": [],
+      "title": "Operational metrics not persisted",
+      "description": "Kafka consumer lag, producer errors, worker health, DLQ rate, and WebSocket status are not stored in ClickHouse. They are intentionally not shown as zero or inferred here.",
+      "type": "text"
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "links": [],
+  "liveNow": false
+}

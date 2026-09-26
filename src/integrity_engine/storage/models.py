@@ -11,6 +11,7 @@ EVENT_TOPIC_TABLE = {
     "market.integrity": "market_integrity",
 }
 DECIMAL = "Nullable(Decimal(76, 38))"
+HIGH_SCALE_DECIMAL = "Nullable(Decimal(76, 50))"
 TIME = "DateTime64(3, 'UTC')"  # Keep existing sorting keys stable during migration.
 
 
@@ -48,7 +49,8 @@ TABLE_TYPES = {
         "spot_perpetual_return_difference", "perpetual_trade_count liquidation_count",
         {"data_complete": "Bool", "volume_unit": "Nullable(String)",
          "open_interest_unit": "Nullable(String)", "open_interest_comparable": "Bool",
-         "spot_reference_timestamp": "Nullable(DateTime64(6, 'UTC'))"}),
+         "spot_reference_timestamp": "Nullable(DateTime64(6, 'UTC'))",
+         "open_interest_change_pct": HIGH_SCALE_DECIMAL}),
     "market_anomalies": columns("detected_at", "exchange symbol window event_type severity direction", "", "",
         {"baseline_ready": "Bool", "detectors_triggered": "Array(String)",
          "metrics_snapshot": "String", "evidence": "String"}),
@@ -79,18 +81,19 @@ def _json(value):
     return json.dumps(value, default=str, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 
 
-def _decimal(value):
+def _decimal(value, scale=38):
     if value is None:
         return None
     if isinstance(value, (float, bool)):
         raise ValueError("financial values require decimal strings or exact numbers")
     number = Decimal(value)
-    if not number.is_finite() or number.copy_abs() >= Decimal('1e38'):
-        raise ValueError("financial value outside Decimal(76,38) range")
+    integer_digits = 76 - scale
+    if not number.is_finite() or number.copy_abs() >= Decimal(10) ** integer_digits:
+        raise ValueError(f"financial value outside Decimal(76,{scale}) range")
     with localcontext() as ctx:
         ctx.prec = 80
-        if number.quantize(Decimal('1e-38')) != number:
-            raise ValueError("financial value exceeds 38 fractional digits")
+        if number.quantize(Decimal(1).scaleb(-scale)) != number:
+            raise ValueError(f"financial value exceeds {scale} fractional digits")
     return number
 
 
@@ -124,8 +127,8 @@ def event_to_row(topic, event, source=None):
     row = []
     for name, typ in TABLE_TYPES[table].items():
         value = fields.get(name)
-        if typ == DECIMAL:
-            value = _decimal(value)
+        if typ in {DECIMAL, HIGH_SCALE_DECIMAL}:
+            value = _decimal(value, 50 if typ == HIGH_SCALE_DECIMAL else 38)
         elif name in JSON_FIELDS:
             value = _json(JSON_FIELDS[name] if value is None else value)
         elif typ.startswith("Array"):

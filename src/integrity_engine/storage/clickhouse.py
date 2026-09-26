@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .models import DECIMAL, TABLE_COLUMNS, TABLE_DDL, TABLE_TYPES
+from .models import DECIMAL, HIGH_SCALE_DECIMAL, TABLE_COLUMNS, TABLE_DDL, TABLE_TYPES
 
 
 class ClickHouseSettings(BaseSettings):
@@ -50,7 +50,7 @@ class ClickHouseStore:
                 elif existing[name].replace(" ", "") != typ.replace(" ", ""):
                     # Only widen the original numeric columns; never rewrite keys or drop data.
                     old = existing[name]
-                    widening = (typ == DECIMAL and "Decimal(" in old) or (
+                    widening = (typ in {DECIMAL, HIGH_SCALE_DECIMAL} and "Decimal(" in old) or (
                         typ == "Nullable(UInt64)" and old in {"UInt16", "UInt64"})
                     if not widening:
                         raise ValueError(f"unsupported schema migration: {table}.{name}")

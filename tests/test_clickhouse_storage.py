@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from integrity_engine.kafka.consumer import OffsetTracker
 from integrity_engine.storage.clickhouse import ClickHouseSettings, ClickHouseStore
-from integrity_engine.storage.models import EVENT_TOPIC_TABLE, TABLE_COLUMNS, TABLE_DDL, TABLE_TYPES, DECIMAL, event_to_row
+from integrity_engine.storage.models import EVENT_TOPIC_TABLE, TABLE_COLUMNS, TABLE_DDL, TABLE_TYPES, DECIMAL, HIGH_SCALE_DECIMAL, event_to_row
 from integrity_engine.storage.writer import ClickHouseWriter, StorageBatchError, storage_dlq
 from tests.test_detection import metric
 from tests.test_integrity import anomaly, cross, deriv, spot
@@ -83,6 +83,18 @@ def test_decimal_precision_and_nullable_values():
     assert TABLE_TYPES['market_metrics']['quote_volume'] == DECIMAL
 
 
+def test_tiny_open_interest_percentage_keeps_full_scale():
+    value = "0." + "0" * 35 + "123456789012345"
+    data = event("market.metrics.derivatives")
+    data["open_interest_change_pct"] = value
+    row = row_dict("market.metrics.derivatives", data)
+    assert row["open_interest_change_pct"] == Decimal(value)
+    assert TABLE_TYPES["derivatives_metrics"]["open_interest_change_pct"] == HIGH_SCALE_DECIMAL
+    data["open_interest_change_pct"] = value + "123456"
+    with pytest.raises(ValueError, match="50 fractional digits"):
+        row_dict("market.metrics.derivatives", data)
+
+
 @pytest.mark.parametrize('value', ['NaN', 'Infinity', '1e39', '1e-39', 0.1, True])
 def test_inexact_or_unrepresentable_financial_values_rejected(value):
     data = event();data['quote_volume'] = value
@@ -136,6 +148,7 @@ class SchemaClient:
         if self.legacy:
             types.pop('original_event')
             if 'quote_volume' in types:types['quote_volume']='Nullable(Decimal(38, 18))'
+            if 'open_interest_change_pct' in types:types['open_interest_change_pct']='Nullable(Decimal(76, 38))'
         return SimpleNamespace(result_rows=list(types.items()))
 
 
@@ -153,6 +166,7 @@ def test_existing_schema_migrates_by_adding_and_widening_only():
     assert len(alters)==5
     assert all('ADD COLUMN IF NOT EXISTS `original_event` String' in c for c in alters)
     assert any('MODIFY COLUMN `quote_volume` Nullable(Decimal(76, 38))' in c for c in alters)
+    assert any('MODIFY COLUMN `open_interest_change_pct` Nullable(Decimal(76, 50))' in c for c in alters)
     assert not any('DROP' in c or 'TRUNCATE' in c for c in client.commands)
 
 
