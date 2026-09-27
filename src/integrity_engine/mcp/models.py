@@ -9,6 +9,8 @@ CANONICAL_PAIR = "BTC-USD"
 WINDOWS = {"10s", "30s", "1m", "5m"}
 EXCHANGES = {"binance", "coinbase", "kraken", "okx", "bybit"}
 TABLES = {
+    "market_alerts": "updated_at",
+    "operational_health": "timestamp",
     "market_metrics": "timestamp",
     "cross_venue_metrics": "timestamp",
     "derivatives_metrics": "timestamp",
@@ -22,6 +24,10 @@ TABLE_COLUMNS = {
     "market_anomalies": {"event_id", "detected_at", "exchange", "symbol", "window", "event_type", "severity", "direction", "baseline_ready", "detectors_triggered", "metrics_snapshot", "evidence", "data_quality_flags"},
     "market_integrity": {"event_id", "calculated_at", "canonical_pair", "trigger_event_id", "trigger_type", "trigger_severity", "move_direction", "move_window", "integrity_score", "overall_confidence", "evidence_coverage", "classification", "classification_confidence", "components", "data_quality_flags"},
 }
+
+from integrity_engine.storage.models import TABLE_TYPES as STORAGE_TYPES
+for _table in ("market_alerts", "operational_health"):
+    TABLE_COLUMNS[_table] = set(STORAGE_TYPES[_table])
 
 
 class ToolInput(BaseModel):

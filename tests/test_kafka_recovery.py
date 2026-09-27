@@ -1,4 +1,5 @@
 """Commit failures must preserve acknowledged offsets until durable commit."""
+import asyncio
 from unittest.mock import MagicMock
 from types import SimpleNamespace
 
@@ -57,3 +58,43 @@ async def test_lag_failure_is_unavailable_not_a_processing_failure(monkeypatch):
     client.assignment.side_effect = RuntimeError("broker unavailable")
     assert await worker.lag_snapshot() is None
     client.commit.assert_not_called()
+
+
+async def test_sustained_empty_assignment_recreates_consumer(monkeypatch):
+    monkeypatch.setenv("PROCESSING_MODE", "live")
+    monkeypatch.setenv("PROCESSING_RUN_ID", "current")
+    old, fresh = MagicMock(), MagicMock()
+    old.assignment.return_value = []
+    old.consume.return_value = []
+    monkeypatch.setattr(module, "Consumer", MagicMock(side_effect=[old, fresh]))
+    worker = module.ManualKafkaConsumer("broker", ["topic", "other"], "worker",
+                                        assignment_recovery_seconds=30)
+    worker._last_assignment_activity = 0
+    monkeypatch.setattr(module.time, "monotonic", lambda: 31)
+
+    assert await worker.poll_batch() == []
+
+    old.close.assert_called_once_with()
+    assert worker._consumer is fresh
+    fresh.subscribe.assert_called_once()
+    assert fresh.subscribe.call_args.args[0] == ["topic", "other"]
+    assert worker._consumer_config["group.id"] == "worker-live-current"
+
+
+async def test_assigned_consumer_is_not_recreated_when_idle(monkeypatch):
+    monkeypatch.setenv("PROCESSING_MODE", "live")
+    monkeypatch.setenv("PROCESSING_RUN_ID", "current")
+    client = MagicMock()
+    client.assignment.return_value = [object()]
+    client.consume.return_value = []
+    factory = MagicMock(return_value=client)
+    monkeypatch.setattr(module, "Consumer", factory)
+    worker = module.ManualKafkaConsumer("broker", "topic", "worker",
+                                        assignment_recovery_seconds=30)
+    monkeypatch.setattr(module.time, "monotonic", lambda: 31)
+    worker._last_assignment_activity = 0
+
+    assert await worker.poll_batch() == []
+
+    assert factory.call_count == 1
+    client.close.assert_not_called()

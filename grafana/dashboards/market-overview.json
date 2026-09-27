@@ -970,6 +970,54 @@
       "title": "Data freshness by persisted stream",
       "description": "Freshness is computed from rows persisted in the last day; no event means NULL.",
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT severity, alert_type, dateDiff('second', first_detected_at, now()) AS age_seconds, summary FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE status != 'resolved' AND canonical_pair = '${canonical_pair}' ORDER BY indexOf(['critical','high','moderate','low','info'], severity), updated_at DESC LIMIT 8",
+          "refId": "A"
+        }
+      ],
+      "title": "ACTIVE ALERTS",
+      "description": "",
+      "type": "table",
+      "id": 1
     }
   ],
   "templating": {

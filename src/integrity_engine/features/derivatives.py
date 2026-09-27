@@ -110,7 +110,7 @@ class DerivativesFeatureEngine:
             open_interest_unit=self.latest_oi.quantity_unit if self.latest_oi else None,open_interest_comparable=False,
             open_interest_change=oi_change,open_interest_change_pct=oi_pct,funding_rate=funding,funding_rate_change=fund_change,
             long_liquidation_volume=longliq,short_liquidation_volume=shortliq,total_liquidation_volume=(longliq+shortliq) if liqs else None,
-            liquidation_quote_volume=liqquote,liquidation_count=len(liqs),volume_unit=trades[-1].quantity_unit if trades else None,
+            liquidation_quote_volume=liqquote,liquidation_count=len(liqs),last_liquidation_at=max((e.exchange_timestamp for e in liqs),default=None),volume_unit=trades[-1].quantity_unit if trades else None,
             spot_reference_price=spot_price,spot_reference_timestamp=refstamp,basis=basis,
             basis_bps=basis/spot_price*D(10000) if basis is not None and spot_price else None,spot_quote_volume=spot_volume,
             perpetual_to_spot_volume_ratio=quote/spot_volume if quote is not None and spot_volume else None,

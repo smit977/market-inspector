@@ -4,6 +4,8 @@ from decimal import Decimal, localcontext
 import json
 
 EVENT_TOPIC_TABLE = {
+    "market.alerts": "market_alerts",
+    "system.operational_health": "operational_health",
     "market.metrics": "market_metrics",
     "market.metrics.cross_venue": "cross_venue_metrics",
     "market.metrics.derivatives": "derivatives_metrics",
@@ -58,10 +60,22 @@ TABLE_TYPES = {
         "integrity_score overall_confidence evidence_coverage classification_confidence", "",
         {"trigger_event_id": "String", "components": "String"}),
 }
+# Revisions are immutable history; retries replace only the identical revision event.
+TABLE_TYPES["market_alerts"] = columns("updated_at", "canonical_pair category alert_type severity status",
+    "integrity_score previous_integrity_score integrity_score_change overall_confidence evidence_coverage", "revision",
+    {"revision":"UInt64", "alert_id":"String", "created_at":TIME,"first_detected_at":TIME,"last_observed_at":TIME,
+     "resolved_at":"Nullable(DateTime64(3, 'UTC'))", "classification":"Nullable(String)",
+     "title":"String","summary":"String","dedupe_key":"String","initial_severity":"String",
+     "maximum_severity":"String","notification_state":"String","is_replay":"Bool",
+     "affected_exchanges":"Array(String)","trigger_event_ids":"Array(String)",
+     "evidence":"String","escalation_timeline":"String"})
+TABLE_TYPES["operational_health"] = columns("timestamp", "canonical_pair exchange", extra={"signals":"String"})
 TABLE_COLUMNS = {t: list(types) for t, types in TABLE_TYPES.items()}
 TABLE_TIME = {t: "detected_at" if t == "market_anomalies" else
-              "calculated_at" if t == "market_integrity" else "timestamp" for t in TABLE_TYPES}
+              "calculated_at" if t == "market_integrity" else "updated_at" if t == "market_alerts" else "timestamp" for t in TABLE_TYPES}
 TABLE_ORDER = {
+    "market_alerts": "canonical_pair, alert_id, revision, updated_at, event_id",
+    "operational_health": "exchange, timestamp, event_id",
     "market_metrics": "symbol, exchange, window, timestamp, event_id",
     "cross_venue_metrics": "canonical_pair, window, timestamp, event_id",
     "derivatives_metrics": "canonical_pair, exchange, window, timestamp, event_id",
@@ -74,7 +88,7 @@ TABLE_DDL = {t: f"CREATE TABLE IF NOT EXISTS {t} (" +
              for t, types in TABLE_TYPES.items()}
 JSON_FIELDS = {"venue_prices": {}, "venue_deviation_bps": {}, "venue_returns": {},
                "venue_volume_shares": {}, "venue_quote_volumes": {}, "follow_lag_ms": {},
-               "metrics_snapshot": {}, "evidence": [], "components": []}
+               "signals": {}, "escalation_timeline": [], "metrics_snapshot": {}, "evidence": [], "components": []}
 
 
 def _json(value):
@@ -114,6 +128,11 @@ def event_to_row(topic, event, source=None):
     timestamp = next((event.get(n) for n in (time_name, "calculated_at", "window_end") if event.get(n) is not None), None)
     timestamp = _timestamp(timestamp)
     fields = dict(event)
+    if table == "market_alerts":
+        from integrity_engine.alerts.models import AlertEvent
+        AlertEvent.model_validate(event)
+        for name, typ in TABLE_TYPES[table].items():
+            if typ == DECIMAL and fields.get(name) is not None: fields[name] = str(fields[name])
     fields[time_name] = timestamp
     fields["source_timestamp"] = timestamp
     fields["original_event"] = _json(event)

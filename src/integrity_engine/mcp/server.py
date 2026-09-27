@@ -99,7 +99,7 @@ def get_data_quality(lookback_minutes: int = 60) -> MCPResponse:
     return MCPResponse.model_validate(tools.invoke("get_data_quality", lookback_minutes))
 
 
-@server.tool(description="Return ClickHouse reachability, table freshness and MCP uptime; Kafka lag is explicitly unavailable.")
+@server.tool(description="Return ClickHouse reachability, table freshness, MCP uptime and recently persisted operational observations. Partial Kafka lag is explicitly labelled.")
 def get_pipeline_health() -> MCPResponse:
     return MCPResponse.model_validate(tools.invoke("get_pipeline_health"))
 
@@ -115,6 +115,16 @@ def query_clickhouse(table: str, columns: list[str], lookback_minutes: int = 15,
 def generate_incident_report(integrity_event_id: str | None = None,
                              anomaly_event_id: str | None = None) -> MCPResponse:
     return MCPResponse.model_validate(tools.invoke("generate_incident_report", integrity_event_id, anomaly_event_id))
+
+
+@server.tool(description="Read active investigation alerts, severity, age, confidence and evidence. No trading actions.")
+def get_active_alerts(canonical_pair: str | None = None, category: str | None = None,
+                      minimum_severity: str | None = None) -> MCPResponse:
+    return MCPResponse.model_validate(tools.invoke("get_active_alerts", canonical_pair, category, minimum_severity))
+
+@server.tool(description="Read an incident's lifecycle, evidence and related market context; bounded history reports truncation.")
+def get_alert_details(alert_id: str) -> MCPResponse:
+    return MCPResponse.model_validate(tools.invoke("get_alert_details", alert_id))
 
 
 async def run() -> None:

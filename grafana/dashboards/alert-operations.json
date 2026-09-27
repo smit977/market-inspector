@@ -1,0 +1,733 @@
+{
+  "id": null,
+  "uid": "alert-operations",
+  "title": "Alert Operations Center",
+  "description": "Investigation urgency. Data quality and pipeline health remain separate from market structure.",
+  "tags": [
+    "market-move-integrity",
+    "clickhouse"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1s",
+      "2s",
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "refresh": "10s",
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT count() AS alerts FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND status != 'resolved'",
+          "refId": "A"
+        }
+      ],
+      "title": "Open alerts",
+      "description": "",
+      "type": "stat",
+      "id": 1
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT count() AS alerts FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND status != 'resolved' AND severity IN ('critical','high')",
+          "refId": "A"
+        }
+      ],
+      "title": "Critical/high alerts",
+      "description": "",
+      "type": "stat",
+      "id": 2
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT count() AS alerts FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND status = 'resolved'",
+          "refId": "A"
+        }
+      ],
+      "title": "Resolved alerts",
+      "description": "",
+      "type": "stat",
+      "id": 3
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT updated_at, canonical_pair, severity, status, alert_type, summary FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND 1 ORDER BY updated_at DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent alerts",
+      "description": "",
+      "type": "table",
+      "id": 4
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT updated_at, canonical_pair, severity, status, alert_type, summary FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND category = 'DATA_QUALITY' ORDER BY updated_at DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Data-quality alerts",
+      "description": "",
+      "type": "table",
+      "id": 5
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT updated_at, canonical_pair, severity, status, alert_type, summary FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND category = 'PIPELINE_HEALTH' ORDER BY updated_at DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Pipeline-health alerts",
+      "description": "",
+      "type": "table",
+      "id": 6
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT updated_at, alert_id, revision, severity, status, summary FROM market_alerts FINAL WHERE $__timeFilter(updated_at) AND NOT is_replay AND NOT is_synthetic AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') ORDER BY updated_at DESC LIMIT 300",
+          "refId": "A"
+        }
+      ],
+      "title": "Alert timeline",
+      "description": "",
+      "type": "table",
+      "id": 7
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 33
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT category, count() AS alerts FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') GROUP BY category",
+          "refId": "A"
+        }
+      ],
+      "title": "Alerts by category",
+      "description": "",
+      "type": "table",
+      "id": 8
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT alert_type, count() AS alerts FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') GROUP BY alert_type",
+          "refId": "A"
+        }
+      ],
+      "title": "Alerts by type",
+      "description": "",
+      "type": "table",
+      "id": 9
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT severity, count() AS alerts FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') GROUP BY severity",
+          "refId": "A"
+        }
+      ],
+      "title": "Alert severity",
+      "description": "",
+      "type": "table",
+      "id": 10
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 39
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT avgOrNull(dateDiff('second', first_detected_at, resolved_at)) AS duration FROM (SELECT updated_at, canonical_pair, category, alert_type, severity, status, summary, first_detected_at, resolved_at, alert_id, revision, integrity_score, integrity_score_change FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND status = 'resolved' AND $__timeFilter(resolved_at)",
+          "refId": "A"
+        }
+      ],
+      "title": "Average duration",
+      "description": "",
+      "type": "stat",
+      "id": 11
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "market-integrity-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 16,
+        "x": 8,
+        "y": 39
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "market-integrity-clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT updated_at, integrity_score, integrity_score_change, severity, status FROM market_alerts FINAL WHERE $__timeFilter(updated_at) AND NOT is_replay AND NOT is_synthetic AND ('${canonical_pair}' = 'all' OR canonical_pair = '${canonical_pair}') AND ('${category}' = 'all' OR category = '${category}') AND ('${severity}' = 'all' OR severity = '${severity}') AND ('${status}' = 'all' OR status = '${status}') AND ('${alert_type}' = 'all' OR alert_type = '${alert_type}') AND alert_type = 'integrity_deterioration' ORDER BY updated_at DESC LIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Integrity deterioration history",
+      "description": "",
+      "type": "table",
+      "id": 12
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "canonical_pair",
+        "label": "Pair",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "market-integrity-clickhouse"
+        },
+        "definition": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "query": "SELECT DISTINCT canonical_pair FROM cross_venue_metrics WHERE timestamp >= now() - INTERVAL 1 DAY ORDER BY canonical_pair LIMIT 20",
+        "current": {
+          "text": "BTC-USD",
+          "value": "BTC-USD"
+        },
+        "options": [],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0,
+        "refresh": 2,
+        "skipUrlSync": false,
+        "regex": "",
+        "sort": 1,
+        "allowCustomValue": false,
+        "queryValue": ""
+      },
+      {
+        "name": "category",
+        "label": "Category",
+        "type": "custom",
+        "query": "all,MARKET_STRUCTURE,DATA_QUALITY,PIPELINE_HEALTH",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "includeAll": false,
+        "multi": false,
+        "options": []
+      },
+      {
+        "name": "severity",
+        "label": "Severity",
+        "type": "custom",
+        "query": "all,info,low,moderate,high,critical",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "includeAll": false,
+        "multi": false,
+        "options": []
+      },
+      {
+        "name": "status",
+        "label": "Status",
+        "type": "custom",
+        "query": "all,open,acknowledged,resolved",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "includeAll": false,
+        "multi": false,
+        "options": []
+      },
+      {
+        "name": "alert_type",
+        "label": "Alert Type",
+        "type": "custom",
+        "query": "all,integrity_deterioration,low_structural_confirmation,liquidity_shock,cross_venue_divergence,derivatives_amplification,liquidation_burst,volume_concentration,venue_stale,source_unavailable,timestamp_disorder,orderbook_sequence_gap,insufficient_evidence,basis_reference_stale,schema_failure,consumer_lag_high,consumer_lag_growing,worker_unhealthy,DLQ_activity,clickhouse_persistence_failure,mcp_unavailable,processing_latency_degradation",
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "includeAll": false,
+        "multi": false,
+        "options": []
+      }
+    ]
+  },
+  "links": [],
+  "liveNow": false
+}

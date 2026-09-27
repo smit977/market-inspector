@@ -6,6 +6,8 @@ import time
 from .clickhouse import ClickHouseSettings, ClickHouseStore
 
 TABLES = (
+    "market_alerts",
+    "operational_health",
     "market_metrics",
     "cross_venue_metrics",
     "derivatives_metrics",

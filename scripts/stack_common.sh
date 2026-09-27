@@ -9,4 +9,4 @@ COMPOSE=(docker compose --project-name market-move-integrity --file "$STACK_ROOT
 LIVE_SERVICES=(kafka kafka-ui clickhouse clickhouse-writer grafana mcp-server
  binance-trades coinbase-trades kraken-trades okx-trades bybit-trades
  binance-orderbook trade-normalizer orderbook-reconstructor feature-engine
- cross-venue-features derivatives-ingestion derivatives-features move-detector integrity-engine)
+ cross-venue-features derivatives-ingestion derivatives-features move-detector integrity-engine alert-engine operational-health)

@@ -52,6 +52,7 @@ services:
       - ./src:/app/src
       - ./scripts:/app/scripts
       - ./tests:/app/tests
+      - ./config:/app/config:ro
       - ./grafana:/app/grafana:ro
       - ./docker-compose.yml:/app/docker-compose.yml:ro
     depends_on:
@@ -126,6 +127,24 @@ services:
   integrity-engine:
     extends: {service: app}
     command: ["python", "scripts/run_integrity_engine.py"]
+    restart: unless-stopped
+
+  alert-engine:
+    extends: {service: app}
+    command: ["python", "scripts/run_alert_engine.py"]
+    restart: unless-stopped
+    stop_grace_period: 45s
+    environment:
+      ALERT_WEBHOOK_ENABLED: ${ALERT_WEBHOOK_ENABLED:-false}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_STATE_PATH: /app/alert-state/state.sqlite
+    volumes:
+      - ./config:/app/config:ro
+      - ./data/alert-state:/app/alert-state
+
+  operational-health:
+    extends: {service: app}
+    command: ["python", "scripts/run_operational_health.py"]
     restart: unless-stopped
 
   clickhouse-writer:

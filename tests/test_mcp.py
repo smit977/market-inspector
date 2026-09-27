@@ -83,7 +83,7 @@ def test_query_clickhouse_rejects_unknown_table_column_and_bounds_limit():
         QueryClickHouseInput(table="market_metrics", columns=["password"])
     with pytest.raises(ValidationError):
         QueryClickHouseInput(table="market_metrics", columns=["timestamp"], limit=5001)
-    assert set(TABLES) == {"market_metrics", "cross_venue_metrics", "derivatives_metrics", "market_anomalies", "market_integrity"}
+    assert set(TABLES) == {"market_metrics", "cross_venue_metrics", "derivatives_metrics", "market_anomalies", "market_integrity", "market_alerts", "operational_health"}
 
 
 def test_market_metric_query_clickhouse_aliases_pair_to_bounded_symbol_filter():
@@ -145,8 +145,9 @@ def test_pipeline_health_uses_bounded_timestamp_aggregates():
     runner = EmptyRunner()
     result = MCPTools(runner=runner).invoke("get_pipeline_health")
     assert result["status"] == "stale_data"
-    assert len(runner.calls) == len(TABLES)
-    for sql, params, limit in runner.calls:
+    assert len(runner.calls) == len(TABLES)+1
+    assert "FROM operational_health" in runner.calls[-1][0] and runner.calls[-1][2] == 50
+    for sql, params, limit in runner.calls[:-1]:
         assert "maxOrNull(" in sql
         assert "now() - INTERVAL {lookback:UInt32} MINUTE" in sql
         assert "ORDER BY" not in sql
@@ -265,6 +266,7 @@ def test_tools_against_local_clickhouse():
     service = MCPTools(runner=MCPQueryRunner(settings=settings))
     try:
         calls = [
+            ("get_active_alerts", ()),
             ("get_market_summary", ()), ("get_latest_market_metrics", ()),
             ("get_integrity_score", ()), ("get_integrity_components", ()),
             ("compare_exchanges", ()), ("get_cross_venue_confirmation", ()),

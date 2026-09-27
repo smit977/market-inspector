@@ -1,17 +1,64 @@
-# Market Move Integrity Engine
+# Market Inspector
 
-Docker-first development environment. All Python commands, dependency
-installation, and tests run inside Docker. Local Python and Anaconda are not used.
-Includes multi-venue ingestion, normalization, order-book reconstruction,
-features, anomaly detection, integrity scoring, and ClickHouse persistence.
+Market Inspector is an open-source, Docker-first crypto market-move integrity and investigation platform. It ingests live market data from multiple exchanges, analyzes spot trades, order books, cross-venue behavior, derivatives, anomalies, integrity, and alerts, stores analytics in ClickHouse, provides Grafana dashboards, exposes a read-only MCP investigation API, and supports deterministic replay and historical evaluation.
+
+This is a market-intelligence research platform, not financial advice or a trading-signal engine. A low integrity score does not prove manipulation. The system does not issue BUY, SELL, LONG, or SHORT commands.
+
+## Quick start
+
+Prerequisites:
+
+- Git
+- Docker Desktop or Docker Engine
+- Docker Compose v2
+- OpenSSL
+
+```sh
+git clone https://github.com/smit977/market-inspector.git
+cd market-inspector
+./scripts/start_stack.sh
+```
+
+On the first run, `start_stack.sh` creates a gitignored `.env` from `.env.example` and generates local-only Grafana/ClickHouse/MCP passwords. Secret values are never printed or committed.
+
+After startup:
+
+- Kafka UI: http://127.0.0.1:8080
+- Grafana: http://127.0.0.1:3000
+- MCP endpoint: http://127.0.0.1:8001/mcp
+
+Useful operations:
+
+```sh
+./scripts/status_stack.sh
+./scripts/stop_stack.sh
+```
+
+Persistent Docker volumes preserve Kafka, ClickHouse, and Grafana state across normal stop/start cycles. Do **not** use `docker compose down -v` unless you intentionally want to delete persisted Docker data.
+
+GitHub contains the reproducible project code and safe configuration only; it does not back up local Kafka, ClickHouse, or Grafana data. Persistent runtime data remains in local Docker volumes. First startup builds and downloads several images and may take a while; allow Docker several gigabytes of memory for the full stack. Public exchange feeds can be unavailable or restricted by region, and Binance derivatives availability varies by location.
+
+## What is included
+
+- Five-venue live spot ingestion
+- Binance order-book ingestion and reconstruction
+- Multi-window feature engineering
+- Cross-venue confirmation and dispersion
+- Bybit/OKX derivatives evidence with explicit missing-data semantics
+- Move detection and Market Move Integrity scoring
+- Real-time alert/incident operations
+- ClickHouse analytical persistence
+- Grafana live dashboards
+- Read-only MCP investigation tools
+- Deterministic historical replay and evaluation
+- Docker-first local operations and restart-safe services
 
 ## Run and verify the complete pipeline
 
 ```sh
-docker compose build app clickhouse-writer
-docker compose up -d --no-build
-docker compose exec -T app pytest -q
-docker compose exec -T app python scripts/check_pipeline_health.py
+./scripts/start_stack.sh
+docker compose run --rm app python -m pytest -q
+docker compose run --rm app python scripts/check_pipeline_health.py
 ```
 
 All ingestion and processing workers run as dedicated services with
@@ -39,11 +86,6 @@ the input: offsets advance only after every table insert in that batch succeeds.
 See [analytical persistence](docs/clickhouse-persistence.md) for migration,
 precision, retry/recovery, duplicate handling, and query examples.
 
-## Prerequisites
-
-- Docker with a running engine (Docker Desktop on macOS)
-- Docker Compose v2
-
 ## Services
 
 | Service | Purpose |
@@ -59,18 +101,16 @@ Automatic topic creation is disabled; topics can be created explicitly in the UI
 
 ## Configuration and validation
 
-Defaults allow validation without creating `.env`:
+A fresh clone should normally use `./scripts/start_stack.sh`. The startup script creates `.env` from `.env.example` when needed and generates the required local-only passwords automatically.
+
+For manual configuration validation:
 
 ```sh
-docker compose config --quiet
-docker compose --env-file .env.example config --quiet
+./scripts/bootstrap_env.sh
+docker compose --env-file .env config --quiet
 ```
 
-For local overrides, copy the example and edit `.env`:
-
-```sh
-cp .env.example .env
-```
+Edit the generated `.env` only when you need local overrides. It is intentionally ignored by Git.
 
 Compose reads `.env` for interpolation and passes the declared settings into
 containers. `ENVIRONMENT` defaults to `development` and
@@ -217,3 +257,17 @@ and image digests. Dependency ranges are bounded but not fully locked yet.
 Image configuration references:
 [Apache Kafka Docker](https://kafka.apache.org/41/getting-started/docker/),
 [Kafbat UI](https://ui.docs.kafbat.io/overview/getting-started).
+
+## Investigation alerts
+
+The live stack includes a durable alert engine and a lightweight operational-health
+collector. Alerts separate market structure, data quality, and pipeline health;
+they never modify integrity scores or provide trading actions.
+
+- [Alerting rules, lifecycle, notification and replay guide](docs/alerting.md)
+- [Validation results and operating limits](docs/alerting-validation.md)
+- [Alert Operations Center](http://127.0.0.1:3000/d/alert-operations)
+- Read-only MCP tools: `get_active_alerts` and `get_alert_details`.
+
+Thresholds are controlled by `config/alert_rules.json`. External webhooks are
+disabled by default. Preserve `data/alert-state` when stopping or restarting.

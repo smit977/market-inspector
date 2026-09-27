@@ -28,7 +28,8 @@ class OffsetTracker:
 
 class ManualKafkaConsumer:
     def __init__(self, bootstrap_servers: str, topic: str | list[str], group_id: str,
-                 auto_offset_reset: str = "earliest") -> None:
+                 auto_offset_reset: str = "earliest",
+                 assignment_recovery_seconds: float = 30.0) -> None:
         if not bootstrap_servers.strip():
             raise ValueError("KAFKA_BOOTSTRAP_SERVERS must be set")
         mode = os.getenv("PROCESSING_MODE", "replay")
@@ -38,21 +39,41 @@ class ManualKafkaConsumer:
             group_id += "-live-" + os.getenv("PROCESSING_RUN_ID", "v2")
             auto_offset_reset = "latest"
         self.group_id = group_id
-        self._consumer = Consumer({
+        self.topics = [topic] if isinstance(topic, str) else list(topic)
+        self.assignment_recovery_seconds = assignment_recovery_seconds
+        self._consumer_config = {
             "bootstrap.servers": bootstrap_servers, "group.id": group_id,
             "auto.offset.reset": auto_offset_reset, "enable.auto.commit": False,
             "enable.auto.offset.store": False, "allow.auto.create.topics": False,
             "queued.max.messages.kbytes": 16384,
-        })
+        }
+        self._consumer = Consumer(self._consumer_config)
         self.tracker = OffsetTracker()
         self.buffer = deque()
         self.batch_size = 256
         self.handled = self.consumed = 0
         self._since_commit = 0
         self._last_commit = self._last_health = time.monotonic()
-        self._consumer.subscribe([topic] if isinstance(topic, str) else topic,
-                                 on_revoke=self._revoke)
+        self._last_assignment_activity = time.monotonic()
+        self._consumer.subscribe(self.topics, on_revoke=self._revoke)
         structlog.get_logger().info("consumer_started", group=group_id, mode=mode)
+
+    async def _recover_empty_assignment(self, idle_seconds: float) -> None:
+        old_consumer = self._consumer
+        self.buffer.clear()
+        try:
+            # close() invokes the revoke callback, which commits only contiguous
+            # acknowledged offsets. Unacknowledged records are replayed safely.
+            await asyncio.to_thread(old_consumer.close)
+        except Exception as error:
+            structlog.get_logger().warning("consumer_recovery_close_failed", group=self.group_id,
+                                           error_type=type(error).__name__)
+        self.tracker = OffsetTracker()
+        self._consumer = Consumer(self._consumer_config)
+        self._consumer.subscribe(self.topics, on_revoke=self._revoke)
+        self._last_assignment_activity = time.monotonic()
+        structlog.get_logger().warning("consumer_assignment_recovery", group=self.group_id,
+                                       idle_seconds=round(idle_seconds, 1))
 
     def _flush(self):
         offsets = self.tracker.offsets()
@@ -90,15 +111,21 @@ class ManualKafkaConsumer:
             self.buffer.clear()
             return messages
         messages = await asyncio.to_thread(self._consumer.consume, self.batch_size, .1)
+        now = time.monotonic()
+        assignment = self._consumer.assignment()
+        if assignment or messages:
+            self._last_assignment_activity = now
+        elif now - self._last_assignment_activity >= self.assignment_recovery_seconds:
+            await self._recover_empty_assignment(now - self._last_assignment_activity)
         for message in messages:
             if message.error():
                 raise KafkaException(message.error())
             self.tracker.observe(message)
         self.consumed += len(messages)
-        if time.monotonic() - self._last_health >= 10:
+        if now - self._last_health >= 10:
             structlog.get_logger().info("consumer_progress", group=self.group_id,
                                        consumed=self.consumed, handled=self.handled)
-            self._last_health = time.monotonic()
+            self._last_health = now
         return messages
 
     async def poll(self) -> Message | None:

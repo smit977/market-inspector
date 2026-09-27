@@ -1,0 +1,27 @@
+{
+  "window": "30s", "max_age_seconds": 15, "min_confidence": 0.65, "min_coverage": 0.65,
+  "comparison_seconds": 300, "relative_score_drop": 0.25, "update_seconds": 30,
+  "rules": {
+    "integrity_deterioration": {"threshold":25,"recovery":10},
+    "low_structural_confirmation": {"threshold":40,"recovery":55,"operator":"below"},
+    "liquidity_shock": {"threshold":2,"recovery":1},
+    "cross_venue_divergence": {"threshold":20,"recovery":10},
+    "derivatives_amplification": {"threshold":3,"recovery":1.5},
+    "liquidation_burst": {"threshold":1000000,"recovery":250000},
+    "volume_concentration": {"threshold":0.65,"recovery":0.45},
+    "venue_stale": {"threshold":1,"recovery":0,"severity":"low","recovery_seconds":60},
+    "source_unavailable": {"threshold":1,"recovery":0,"recovery_seconds":60},
+    "timestamp_disorder": {"threshold":1,"recovery":0,"severity":"low"},
+    "orderbook_sequence_gap": {"threshold":1,"recovery":0},
+    "insufficient_evidence": {"threshold":1,"recovery":0,"severity":"low"},
+    "basis_reference_stale": {"threshold":1,"recovery":0,"severity":"low"},
+    "schema_failure": {"threshold":1,"recovery":0},
+    "consumer_lag_high": {"threshold":10000,"recovery":2000},
+    "consumer_lag_growing": {"threshold":5000,"recovery":1000},
+    "worker_unhealthy": {"threshold":1,"recovery":0,"recovery_seconds":60},
+    "DLQ_activity": {"threshold":1,"recovery":0},
+    "clickhouse_persistence_failure": {"threshold":1,"recovery":0},
+    "mcp_unavailable": {"threshold":1,"recovery":0},
+    "processing_latency_degradation": {"threshold":30,"recovery":10}
+  }
+}

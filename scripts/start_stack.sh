@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+"$(dirname "$0")/bootstrap_env.sh"
 source "$(dirname "$0")/stack_common.sh"
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" up --detach --wait --wait-timeout 240 "${LIVE_SERVICES[@]}"

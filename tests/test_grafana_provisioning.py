@@ -38,6 +38,7 @@ def test_compose_provisions_local_grafana_and_named_runtime_volume():
 
 def test_all_expected_dashboards_are_valid_bounded_and_versioned():
     expected = {
+        "alert-operations.json": ("alert-operations", "Alert Operations Center"),
         "market-overview.json": ("market-overview", "Market Overview"),
         "market-integrity.json": ("market-integrity", "Market Move Integrity"),
         "cross-venue.json": ("cross-venue", "Cross-Venue Analysis"),
@@ -55,12 +56,16 @@ def test_all_expected_dashboards_are_valid_bounded_and_versioned():
         assert dashboard["panels"]
         if uid != "historical-events":
             assert dashboard["time"]["from"] == "now-15m"
-            assert dashboard["refresh"] == "2s"
+            assert dashboard["refresh"] == ("10s" if uid == "alert-operations" else "2s")
         for panel in dashboard["panels"]:
             for query in panel.get("targets", []):
                 sql = query["rawSql"]
                 assert "SELECT *" not in sql.upper()
-                assert "$__timeFilter(" in sql or "now() - INTERVAL" in sql
+                if "market_alerts" in sql and "LIMIT 1 BY alert_id" in sql:
+                    # Current incident state cannot use a time cutoff before the latest revision.
+                    assert "NOT is_replay" in sql and "NOT is_synthetic" in sql
+                else:
+                    assert "$__timeFilter(" in sql or "now() - INTERVAL" in sql
                 assert query["datasource"]["uid"] == "market-integrity-clickhouse"
 
 

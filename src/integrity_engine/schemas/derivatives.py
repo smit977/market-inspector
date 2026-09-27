@@ -83,6 +83,7 @@ class DerivativesMetrics(BaseModel):
     liquidation_quote_volume: Decimal | None = None
     volume_unit: str | None = None
     liquidation_count: int = 0
+    last_liquidation_at: datetime | None = None
     spot_reference_price: Decimal | None = None
     spot_reference_timestamp: datetime | None = None
     basis: Decimal | None = None

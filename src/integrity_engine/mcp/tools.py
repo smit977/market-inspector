@@ -53,7 +53,7 @@ def _safe(value: Any) -> Any:
 def _decode(row: dict[str, Any]) -> dict[str, Any]:
     result = dict(row)
     for field in ("venue_prices", "venue_deviation_bps", "venue_returns", "venue_volume_shares",
-                  "venue_quote_volumes", "follow_lag_ms", "metrics_snapshot", "evidence", "components"):
+                  "venue_quote_volumes", "follow_lag_ms", "metrics_snapshot", "evidence", "components", "signals", "escalation_timeline"):
         value = result.get(field)
         if isinstance(value, str) and value:
             try:
@@ -200,6 +200,45 @@ class MCPTools:
             groups[group] = data
         return {"status": state, "data": _safe(data), "source_tables": tables,
                 "quality_flags": flags or [], "data_as_of": _safe(data_as_of), "evidence": groups}
+
+    def get_active_alerts(self, canonical_pair=None, category=None, minimum_severity=None):
+        from integrity_engine.alerts.models import SEVERITIES
+        params = {}
+        where = ["status IN ('open', 'acknowledged')"]
+        if canonical_pair:
+            params["pair"] = LookbackInput(canonical_pair=canonical_pair).canonical_pair
+            where.append("canonical_pair = {pair:String}")
+        if category:
+            if category not in {"MARKET_STRUCTURE", "DATA_QUALITY", "PIPELINE_HEALTH"}: raise ValueError("invalid_argument")
+            params["category"] = category
+            where.append("category = {category:String}")
+        if minimum_severity:
+            if minimum_severity not in SEVERITIES: raise ValueError("invalid_argument")
+            params["severities"] = list(SEVERITIES[SEVERITIES.index(minimum_severity):])
+            where.append("severity IN {severities:Array(String)}")
+        rows = self._fetch("SELECT *, dateDiff('second', first_detected_at, now()) AS age_seconds FROM "
+            "(SELECT * FROM market_alerts WHERE NOT is_replay AND NOT is_synthetic "
+            "ORDER BY revision DESC, updated_at DESC LIMIT 1 BY alert_id) WHERE " + " AND ".join(where) +
+            " ORDER BY updated_at DESC LIMIT 100", params, 100)
+        return self._result(rows, ["market_alerts"], data_as_of=max((r["updated_at"] for r in rows), default=None))
+
+    def get_alert_details(self, alert_id):
+        from uuid import UUID
+        alert_id = str(UUID(alert_id))
+        rows = self._fetch("SELECT * FROM market_alerts FINAL WHERE alert_id = {id:String} "
+            "ORDER BY revision DESC LIMIT 400", {"id":alert_id}, 400)
+        if not rows: return self._result(None, ["market_alerts"])
+        current = rows[0]
+        ids = current.get("trigger_event_ids", [])
+        related = {}
+        for table in ("market_anomalies", "market_integrity"):
+            related[table] = self._fetch(f"SELECT original_event FROM {table} WHERE event_id IN {{ids:Array(String)}} LIMIT 30", {"ids":ids}, 30) if ids else []
+        context = self._fetch("SELECT original_event FROM cross_venue_metrics WHERE canonical_pair = {pair:String} "
+            "AND timestamp BETWEEN {at:DateTime64(3)} - INTERVAL 30 SECOND AND {at:DateTime64(3)} "
+            "ORDER BY timestamp DESC LIMIT 8", {"pair":current["canonical_pair"], "at":_naive_utc(current["last_observed_at"])}, 8)
+        return self._result({"current_state":current,"lifecycle":list(reversed(rows)),
+            "history_truncated":len(rows)==400,"related_events":related,"market_context":context},
+            ["market_alerts","market_anomalies","market_integrity","cross_venue_metrics"], data_as_of=current["updated_at"])
 
     def _latest_market(self, pair: str, exchange: str | None, window: str, lookback: int, limit: int = 1):
         params = {"symbols": _pair_symbols(pair), "window": window, "lookback": lookback, "limit": limit}
@@ -688,9 +727,15 @@ class MCPTools:
         required_tables = ("market_metrics", "cross_venue_metrics", "derivatives_metrics")
         all_fresh = all(rows[name] is not None and not self._stale(rows[name], 120)
                         for name in required_tables)
+        operational = self._fetch("SELECT timestamp, exchange, signals FROM operational_health "
+            "WHERE timestamp >= now() - INTERVAL 1 MINUTE AND timestamp <= now() "
+            "ORDER BY timestamp DESC LIMIT 1 BY exchange LIMIT 50", {}, 50)
+        lag = {r["exchange"]: {"timestamp":r["timestamp"], **r["signals"]["consumer_lag_high"]}
+               for r in operational if isinstance(r.get("signals"),dict) and "consumer_lag_high" in r["signals"]}
         data = {"clickhouse_reachable": True, "latest_row_timestamp_by_table": rows,
-                "sparse_event_tables": ["market_anomalies", "market_integrity"],
-                "kafka_lag": "unavailable", "grafana_datasource_required": False,
+                "sparse_event_tables": ["market_anomalies", "market_integrity", "market_alerts"],
+                "operational_health": operational,
+                "kafka_lag": lag or "unavailable", "grafana_datasource_required": False,
                 "mcp_uptime_seconds": round(monotonic() - self.started_at, 2),
                 "health_state": "healthy" if all_fresh else "stale_or_empty_data"}
         return self._result(data, TABLES_LIST, "observed_fact",

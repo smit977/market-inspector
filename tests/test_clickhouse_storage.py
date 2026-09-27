@@ -20,6 +20,14 @@ from integrity_engine.integrity.scoring import score_integrity
 
 
 def event(topic="market.metrics"):
+    if topic == "market.alerts":
+        from tests.test_alerts import assess, NOW
+        from integrity_engine.alerts.state import AlertState
+        from integrity_engine.alerts.config import AlertConfig
+        return AlertState().transition(assess(), NOW, AlertConfig.load()).model_dump(mode="json")
+    if topic == "system.operational_health":
+        return {"event_id":str(uuid4()),"calculated_at":datetime.now(timezone.utc).isoformat(),
+                "exchange":"test-worker","canonical_pair":"BTC-USD","signals":{"worker_unhealthy":{"value":0,"scope":"test-worker"}}}
     models = {"market.metrics": metric(), "market.metrics.cross_venue": cross(),
               "market.metrics.derivatives": deriv(), "market.anomalies": anomaly(),
               "market.integrity": score_integrity(anomaly(), spot(), cross(), deriv())}
@@ -70,7 +78,7 @@ def test_routes_and_preserves_identifiers(topic, table):
 
 
 def test_only_curated_topics():
-    assert len(EVENT_TOPIC_TABLE) == 5
+    assert set(EVENT_TOPIC_TABLE) == {"market.metrics", "market.metrics.cross_venue", "market.metrics.derivatives", "market.anomalies", "market.integrity", "market.alerts", "system.operational_health"}
     with pytest.raises(KeyError): event_to_row('market.raw.trades', event())
 
 
@@ -155,7 +163,7 @@ class SchemaClient:
 def test_schema_initialization_is_idempotent():
     client=SchemaClient();store=ClickHouseStore(client=client)
     store.initialize();store.initialize()
-    assert len(client.commands)==12
+    assert len(client.commands)==2*(1+len(TABLE_TYPES))
     assert all('IF NOT EXISTS' in cmd for cmd in client.commands)
     assert not any('DROP' in cmd or 'TRUNCATE' in cmd for cmd in client.commands)
 
@@ -163,7 +171,7 @@ def test_schema_initialization_is_idempotent():
 def test_existing_schema_migrates_by_adding_and_widening_only():
     client=SchemaClient(legacy=True);ClickHouseStore(client=client).initialize()
     alters=[c for c in client.commands if c.startswith('ALTER')]
-    assert len(alters)==5
+    assert len(alters)==len(TABLE_TYPES)
     assert all('ADD COLUMN IF NOT EXISTS `original_event` String' in c for c in alters)
     assert any('MODIFY COLUMN `quote_volume` Nullable(Decimal(76, 38))' in c for c in alters)
     assert any('MODIFY COLUMN `open_interest_change_pct` Nullable(Decimal(76, 50))' in c for c in alters)
