@@ -163,6 +163,7 @@ services:
         condition: service_healthy
 
   kafka:
+    restart: unless-stopped
     image: apache/kafka:4.1.2
     environment:
       KAFKA_NODE_ID: "1"
@@ -194,6 +195,7 @@ services:
       start_period: 30s
 
   kafka-ui:
+    restart: unless-stopped
     image: ghcr.io/kafbat/kafka-ui:v1.5.0
     ports:
       - "127.0.0.1:${KAFKA_UI_PORT:-8080}:8080"
@@ -206,6 +208,7 @@ services:
         condition: service_healthy
 
   clickhouse:
+    restart: unless-stopped
     image: clickhouse/clickhouse-server:25.8
     ports:
       - "127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
@@ -226,6 +229,9 @@ services:
       start_period: 20s
 
   clickhouse-grafana-user:
+    volumes:
+      - ./src:/app/src:ro
+      - ./scripts:/app/scripts:ro
     build:
       context: .
       dockerfile: Dockerfile
@@ -246,6 +252,7 @@ services:
         condition: service_healthy
 
   grafana:
+    restart: unless-stopped
     image: grafana/grafana:12.2.1
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
@@ -272,6 +279,9 @@ services:
         condition: service_completed_successfully
 
   clickhouse-mcp-user:
+    volumes:
+      - ./src:/app/src:ro
+      - ./scripts:/app/scripts:ro
     build:
       context: .
       dockerfile: Dockerfile
